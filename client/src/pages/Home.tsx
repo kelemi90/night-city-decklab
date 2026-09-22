@@ -66,11 +66,13 @@ function MiniCard({
   quantity,
   onAdd,
   onRemove,
+  onOpen,
 }: {
   card: CatalogCard;
   quantity?: number;
   onAdd?: () => void;
   onRemove?: () => void;
+  onOpen?: () => void;
 }) {
   const [details, setDetails] = useState<CardDetails>();
 
@@ -95,7 +97,22 @@ function MiniCard({
     : "";
 
   return (
-    <div className="mini-card" style={cardTone(card.color)}>
+    <div
+      className="mini-card"
+      style={{
+        ...cardTone(card.color),
+        cursor: onOpen ? "pointer" : undefined,
+      }}
+      onClick={onOpen}
+      role={onOpen ? "button" : undefined}
+      tabIndex={onOpen ? 0 : undefined}
+      onKeyDown={(event) => {
+        if (onOpen && (event.key === "Enter" || event.key === " ")) {
+          event.preventDefault();
+          onOpen();
+        }
+      }}
+    >
       <div className="mini-card-image-wrap">
         <img
           src={getCardArtUrl(card)}
@@ -168,7 +185,10 @@ function MiniCard({
         </div>
 
         {quantity !== undefined && (
-          <div className="quantity-row">
+          <div
+            className="quantity-row"
+            onClick={(event) => event.stopPropagation()}
+          >
             <span>In collection</span>
 
             <div className="stepper">
@@ -199,6 +219,544 @@ function MiniCard({
   );
 }
 
+function CollectionCardDialog({
+  card,
+  scans,
+  quantity,
+  open,
+  onClose,
+}: {
+  card: CatalogCard | null;
+  scans: Array<{
+    id: number;
+    frontImageUrl?: string | null;
+    backImageUrl?: string | null;
+    createdAt: Date | string;
+    recognitionStatus: "pending" | "matched" | "review";
+  }>;
+  quantity: number;
+  open: boolean;
+  onClose: () => void;
+}) {
+  const [scanSide, setScanSide] = useState<"front" | "back">("front");
+  const [details, setDetails] = useState<CardDetails>();
+
+  useEffect(() => {
+    if (!open || !card) {
+      return;
+    }
+
+    setScanSide("front");
+
+    let cancelled = false;
+
+    void loadCardDetails().then((allDetails) => {
+      if (!cancelled) {
+        setDetails(allDetails[card.id]);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, card?.id]);
+
+  if (!open || !card) {
+    return null;
+  }
+
+  const classifications = details?.classifications ?? [];
+  const keywords = details?.keywords ?? [];
+  const rulesText = details?.rulesText
+    ? formatRulesText(details.rulesText)
+    : "";
+
+  const selectedScan = scans[0];
+
+  const scanImage =
+    scanSide === "front"
+      ? selectedScan?.frontImageUrl
+      : selectedScan?.backImageUrl;
+
+  const hasFront = Boolean(selectedScan?.frontImageUrl);
+  const hasBack = Boolean(selectedScan?.backImageUrl);
+  const hasScans = hasFront || hasBack;
+
+  const accent =
+    COLOR_META[card.color as CardColor]?.hex ?? "#b9f36b";
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={`${card.name} details`}
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) {
+          onClose();
+        }
+      }}
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 1000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 20,
+        background: "rgba(3, 5, 9, 0.82)",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <div
+        style={{
+          position: "relative",
+          width: "min(1080px, 100%)",
+          maxHeight: "calc(100vh - 40px)",
+          overflowY: "auto",
+          borderRadius: 18,
+          border: `1px solid ${accent}55`,
+          background:
+            "linear-gradient(145deg, rgba(20,25,34,.98), rgba(7,10,15,.99))",
+          boxShadow: "0 24px 80px rgba(0,0,0,.55)",
+          padding: 20,
+        }}
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Close card details"
+          style={{
+            position: "absolute",
+            top: 14,
+            right: 14,
+            width: 36,
+            height: 36,
+            display: "grid",
+            placeItems: "center",
+            border: "1px solid rgba(255,255,255,.12)",
+            borderRadius: 9,
+            background: "rgba(255,255,255,.05)",
+            color: "white",
+            cursor: "pointer",
+            zIndex: 3,
+          }}
+        >
+          <X size={18} />
+        </button>
+
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns:
+              "minmax(260px, 360px) minmax(0, 1fr)",
+            gap: 28,
+            alignItems: "start",
+          }}
+        >
+          {/* LEFT: DIGITAL CARD + CARD INFORMATION */}
+          <div>
+            <img
+              src={getCardArtUrl(card)}
+              alt={card.name}
+              style={{
+                display: "block",
+                width: "100%",
+                maxHeight: 520,
+                objectFit: "contain",
+                borderRadius: 12,
+              }}
+            />
+
+            <div
+              style={{
+                marginTop: 10,
+                textAlign: "center",
+                fontSize: 12,
+                opacity: 0.65,
+              }}
+            >
+              Digital card reference
+            </div>
+
+            <div
+              style={{
+                marginTop: 22,
+                paddingTop: 18,
+                borderTop: "1px solid rgba(255,255,255,.08)",
+              }}
+            >
+              <span className="eyebrow">Card details</span>
+
+              <h3
+                style={{
+                  margin: "5px 0 12px",
+                  fontSize: 22,
+                }}
+              >
+                {card.name}
+              </h3>
+
+              <div
+                style={{
+                  display: "flex",
+                  flexWrap: "wrap",
+                  gap: 7,
+                  marginBottom: 14,
+                }}
+              >
+                <span
+                  style={{
+                    padding: "4px 8px",
+                    borderRadius: 6,
+                    background: "rgba(255,255,255,.06)",
+                    fontSize: 11,
+                  }}
+                >
+                  {details?.cardType ?? card.kind}
+                </span>
+
+                {classifications.map((classification) => (
+                  <span
+                    key={classification}
+                    style={{
+                      padding: "4px 8px",
+                      borderRadius: 6,
+                      background: `${accent}18`,
+                      border: `1px solid ${accent}35`,
+                      color: accent,
+                      fontSize: 11,
+                    }}
+                  >
+                    {classification}
+                  </span>
+                ))}
+              </div>
+
+              {keywords.length > 0 && (
+                <div
+                  style={{
+                    display: "flex",
+                    flexWrap: "wrap",
+                    gap: 7,
+                    marginBottom: 16,
+                  }}
+                >
+                  {keywords.map((keyword) => (
+                    <span
+                      key={keyword}
+                      style={{
+                        padding: "4px 8px",
+                        borderRadius: 6,
+                        background: "rgba(255,255,255,.05)",
+                        border:
+                          "1px solid rgba(255,255,255,.08)",
+                        fontSize: 11,
+                        color: "#c8d7cd",
+                      }}
+                    >
+                      {keyword}
+                    </span>
+                  ))}
+                </div>
+              )}
+
+              {rulesText && (
+                <div
+                  style={{
+                    marginBottom: 16,
+                    padding: "12px 13px",
+                    borderRadius: 10,
+                    background: "rgba(255,255,255,.035)",
+                    borderLeft: `2px solid ${accent}88`,
+                  }}
+                >
+                  {rulesText.split("\n").map((line, index) => (
+                    <p
+                      key={`${card.id}-detail-rule-${index}`}
+                      style={{
+                        margin: index === 0 ? 0 : "9px 0 0",
+                        lineHeight: 1.55,
+                        fontSize: 13,
+                        color: "#d6e0da",
+                      }}
+                    >
+                      {line}
+                    </p>
+                  ))}
+                </div>
+              )}
+
+              {details?.flavorText && (
+                <div
+                  style={{
+                    marginBottom: 16,
+                    fontSize: 12,
+                    lineHeight: 1.6,
+                    fontStyle: "italic",
+                    color: "#8e9d98",
+                  }}
+                >
+                  {details.flavorText}
+                </div>
+              )}
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1fr 1fr",
+                  gap: 8,
+                  fontSize: 11,
+                }}
+              >
+                <div
+                  style={{
+                    padding: "9px 10px",
+                    borderRadius: 8,
+                    background: "rgba(255,255,255,.035)",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      opacity: 0.5,
+                      marginBottom: 3,
+                    }}
+                  >
+                    Rarity
+                  </span>
+                  <strong>{card.rarity}</strong>
+                </div>
+
+                <div
+                  style={{
+                    padding: "9px 10px",
+                    borderRadius: 8,
+                    background: "rgba(255,255,255,.035)",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "block",
+                      opacity: 0.5,
+                      marginBottom: 3,
+                    }}
+                  >
+                    Set
+                  </span>
+                  <strong>{card.setName}</strong>
+                </div>
+
+                {card.cost !== undefined && (
+                  <div
+                    style={{
+                      padding: "9px 10px",
+                      borderRadius: 8,
+                      background: "rgba(255,255,255,.035)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "block",
+                        opacity: 0.5,
+                        marginBottom: 3,
+                      }}
+                    >
+                      Cost
+                    </span>
+                    <strong>{card.cost} EDDIES</strong>
+                  </div>
+                )}
+
+                {card.power !== undefined && (
+                  <div
+                    style={{
+                      padding: "9px 10px",
+                      borderRadius: 8,
+                      background: "rgba(255,255,255,.035)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "block",
+                        opacity: 0.5,
+                        marginBottom: 3,
+                      }}
+                    >
+                      Power
+                    </span>
+                    <strong>{card.power} PWR</strong>
+                  </div>
+                )}
+
+                {card.ram !== undefined && (
+                  <div
+                    style={{
+                      padding: "9px 10px",
+                      borderRadius: 8,
+                      background: "rgba(255,255,255,.035)",
+                    }}
+                  >
+                    <span
+                      style={{
+                        display: "block",
+                        opacity: 0.5,
+                        marginBottom: 3,
+                      }}
+                    >
+                      RAM
+                    </span>
+                    <strong>{card.ram}</strong>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* RIGHT: COLLECTION + PERSONAL SCANS */}
+          <div>
+            <span className="eyebrow">Collection card</span>
+
+            <h2
+              style={{
+                margin: "4px 0 6px",
+                paddingRight: 40,
+              }}
+            >
+              {card.name}
+            </h2>
+
+            <div
+              style={{
+                display: "flex",
+                flexWrap: "wrap",
+                gap: 8,
+                marginBottom: 18,
+                fontSize: 12,
+                opacity: 0.7,
+              }}
+            >
+              <span>{card.rarity}</span>
+              <span>•</span>
+              <span>{card.setName}</span>
+              <span>•</span>
+              <span>×{quantity} owned</span>
+            </div>
+
+            <div
+              style={{
+                borderTop: "1px solid rgba(255,255,255,.08)",
+                paddingTop: 18,
+              }}
+            >
+              <span className="eyebrow">My scans</span>
+
+              {!hasScans ? (
+                <div
+                  className="empty-state"
+                  style={{ marginTop: 12 }}
+                >
+                  <ScanLine size={24} />
+                  <strong>No personal scans yet.</strong>
+                  <span>
+                    Scan this physical card to save front and
+                    back images here.
+                  </span>
+                </div>
+              ) : (
+                <>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      marginTop: 12,
+                      marginBottom: 12,
+                    }}
+                  >
+                    {hasFront && (
+                      <Button
+                        variant={
+                          scanSide === "front"
+                            ? "default"
+                            : "outline"
+                        }
+                        size="sm"
+                        onClick={() => setScanSide("front")}
+                      >
+                        Front
+                      </Button>
+                    )}
+
+                    {hasBack && (
+                      <Button
+                        variant={
+                          scanSide === "back"
+                            ? "default"
+                            : "outline"
+                        }
+                        size="sm"
+                        onClick={() => setScanSide("back")}
+                      >
+                        Back
+                      </Button>
+                    )}
+                  </div>
+
+                  {scanImage ? (
+                    <div
+                      style={{
+                        borderRadius: 12,
+                        overflow: "hidden",
+                        border:
+                          "1px solid rgba(255,255,255,.1)",
+                        background: "rgba(0,0,0,.25)",
+                      }}
+                    >
+                      <img
+                        src={scanImage}
+                        alt={`${card.name} personal ${scanSide} scan`}
+                        style={{
+                          display: "block",
+                          width: "100%",
+                          maxWidth: 360,
+                          maxHeight: 420,
+                          margin: "0 auto",
+                          objectFit: "contain",
+                        }}
+                      />
+                    </div>
+                  ) : (
+                    <div className="empty-state">
+                      <span>
+                        No {scanSide} image was saved for this
+                        scan.
+                      </span>
+                    </div>
+                  )}
+
+                  {selectedScan?.createdAt && (
+                    <small
+                      style={{
+                        display: "block",
+                        marginTop: 10,
+                        opacity: 0.55,
+                      }}
+                    >
+                      Scanned{" "}
+                      {new Date(
+                        selectedScan.createdAt,
+                      ).toLocaleString()}
+                    </small>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function StatCard({ label, value, detail, accent }: { label: string; value: string; detail: string; accent: string }) {
   return <div className="stat-card"><div className="stat-accent" style={{ background: accent }} /><span className="eyebrow">{label}</span><strong>{value}</strong><small>{detail}</small></div>;
 }
@@ -222,6 +780,7 @@ function CameraPanel({ cards, isAuthenticated, onAuthRequired }: { cards: Catalo
     onSuccess: () => {
       toast.success("Scan added to your collection.");
       void utils.collection.list.invalidate();
+      void utils.scans.list.invalidate();
     },
     onError: (error) => toast.error(error.message),
   });
@@ -343,7 +902,6 @@ function CameraPanel({ cards, isAuthenticated, onAuthRequired }: { cards: Catalo
       return;
     }
 
-    const viewportRect = viewport.getBoundingClientRect();
     const videoRect = video.getBoundingClientRect();
 
     const reticle = viewport.querySelector<HTMLElement>(".reticle");
@@ -356,53 +914,74 @@ function CameraPanel({ cards, isAuthenticated, onAuthRequired }: { cards: Catalo
     const reticleRect = reticle.getBoundingClientRect();
 
     /*
-     * The video uses object-fit: cover.
+     * The <video> element itself is the reference rectangle.
      *
-     * Calculate which part of the original camera frame is actually
-     * visible inside the viewport, then map the on-screen reticle
-     * coordinates back into the original camera image.
+     * This is important on mobile browsers: the video element can
+     * have a different rendered rectangle from its parent viewport.
+     * The CSS uses object-fit: cover, so the camera image is scaled
+     * until it completely covers the video element and the excess
+     * image is cropped equally from the sides/top-bottom according
+     * to object-position: center center.
      */
+
+    const videoBoxWidth = videoRect.width;
+    const videoBoxHeight = videoRect.height;
+
     const scale = Math.max(
-      videoRect.width / sourceW,
-      videoRect.height / sourceH,
+      videoBoxWidth / sourceW,
+      videoBoxHeight / sourceH,
     );
 
     const renderedW = sourceW * scale;
     const renderedH = sourceH * scale;
 
+    /*
+     * This is the actual visible camera image inside the video
+     * element after object-fit: cover has been applied.
+     */
     const renderedLeft =
-      viewportRect.left + (viewportRect.width - renderedW) / 2;
+      videoRect.left + (videoBoxWidth - renderedW) / 2;
 
     const renderedTop =
-      viewportRect.top + (viewportRect.height - renderedH) / 2;
+      videoRect.top + (videoBoxHeight - renderedH) / 2;
 
+    /*
+     * Convert the exact on-screen reticle rectangle into coordinates
+     * in the original camera frame.
+     */
     const sourceLeft =
       (reticleRect.left - renderedLeft) / scale;
 
     const sourceTop =
       (reticleRect.top - renderedTop) / scale;
 
-    const sourceWidth = reticleRect.width / scale;
-    const sourceHeight = reticleRect.height / scale;
+    const sourceWidth =
+      reticleRect.width / scale;
 
+    const sourceHeight =
+      reticleRect.height / scale;
+
+    /*
+     * Keep the crop completely inside the actual camera frame.
+     */
     const sx = Math.max(
       0,
-      Math.min(sourceW - 1, sourceLeft),
+      Math.min(sourceW - sourceWidth, sourceLeft),
     );
 
     const sy = Math.max(
       0,
-      Math.min(sourceH - 1, sourceTop),
+      Math.min(sourceH - sourceHeight, sourceTop),
     );
 
     const cropW = Math.min(
-      sourceW - sx,
       sourceWidth,
+      sourceW - sx,
     );
 
     const cropH = Math.min(
-      sourceH - sy,
       sourceHeight,
+      sourceH - sy,
     );
 
     if (cropW < 100 || cropH < 100) {
@@ -547,6 +1126,10 @@ function CollectionView({
     enabled: isAuthenticated,
   });
 
+  const { data: scans } = trpc.scans.list.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+
   const utils = trpc.useUtils();
 
   const upsert = trpc.collection.upsert.useMutation({
@@ -581,6 +1164,50 @@ function CollectionView({
     () => new Map(cards.map((card) => [card.id, card])),
     [cards],
   );
+
+  const scansByCardId = useMemo(() => {
+    const map = new Map<
+      number,
+      Array<{
+        id: number;
+        frontImageUrl?: string | null;
+        backImageUrl?: string | null;
+        createdAt: Date | string;
+        recognitionStatus: "pending" | "matched" | "review";
+      }>
+    >();
+
+    for (const scan of scans ?? []) {
+      if (scan.cardId === null) {
+        continue;
+      }
+
+      const existing = map.get(scan.cardId) ?? [];
+
+      existing.push({
+        id: scan.id,
+        frontImageUrl: scan.frontImageUrl,
+        backImageUrl: scan.backImageUrl,
+        createdAt: scan.createdAt,
+        recognitionStatus: scan.recognitionStatus,
+      });
+
+      map.set(scan.cardId, existing);
+    }
+
+    return map;
+  }, [scans]);
+
+  const [selectedCollectionCardId, setSelectedCollectionCardId] =
+    useState<number | null>(null);
+
+  const selectedCollectionCard = selectedCollectionCardId
+    ? catalogById.get(selectedCollectionCardId) ?? null
+    : null;
+
+  const selectedCollectionScans = selectedCollectionCardId
+    ? scansByCardId.get(selectedCollectionCardId) ?? []
+    : [];
 
   const visible = (collection ?? [])
     .filter((item) => item.quantity > 0)
@@ -725,12 +1352,25 @@ function CollectionView({
               key={card.id}
               card={card}
               quantity={quantities[card.id] ?? 0}
+              onOpen={() => setSelectedCollectionCardId(card.id)}
               onAdd={() => change(card, 1)}
               onRemove={() => change(card, -1)}
             />
           ))}
         </div>
       )}
+
+      <CollectionCardDialog
+        card={selectedCollectionCard}
+        scans={selectedCollectionScans}
+        quantity={
+          selectedCollectionCard
+            ? quantities[selectedCollectionCard.id] ?? 0
+            : 0
+        }
+        open={selectedCollectionCard !== null}
+        onClose={() => setSelectedCollectionCardId(null)}
+      />
     </section>
   );
 }

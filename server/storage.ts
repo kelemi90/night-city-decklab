@@ -22,15 +22,43 @@ function getStoragePath(relKey: string): string {
   return resolved;
 }
 
-function appendHashSuffix(relKey: string): string {
+function getExtensionForContentType(contentType: string): string {
+  const normalized = contentType.split(";")[0].trim().toLowerCase();
+
+  switch (normalized) {
+    case "image/jpeg":
+      return ".jpg";
+
+    case "image/png":
+      return ".png";
+
+    case "image/webp":
+      return ".webp";
+
+    case "image/gif":
+      return ".gif";
+
+    case "image/avif":
+      return ".avif";
+
+    default:
+      return "";
+  }
+}
+
+function appendHashSuffix(relKey: string, extension = ""): string {
   const hash = crypto.randomUUID().replace(/-/g, "").slice(0, 8);
   const lastDot = relKey.lastIndexOf(".");
+  const lastSlash = relKey.lastIndexOf("/");
 
-  if (lastDot === -1) {
-    return `${relKey}_${hash}`;
+  const hasExtension =
+    lastDot > lastSlash && lastDot < relKey.length - 1;
+
+  if (hasExtension) {
+    return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
   }
 
-  return `${relKey.slice(0, lastDot)}_${hash}${relKey.slice(lastDot)}`;
+  return `${relKey}_${hash}${extension}`;
 }
 
 export async function storagePut(
@@ -38,9 +66,8 @@ export async function storagePut(
   data: Buffer | Uint8Array | string,
   contentType = "application/octet-stream",
 ): Promise<{ key: string; url: string }> {
-  void contentType;
-
-  const key = appendHashSuffix(normalizeKey(relKey));
+  const extension = getExtensionForContentType(contentType);
+  const key = appendHashSuffix(normalizeKey(relKey), extension);
   const filePath = getStoragePath(key);
 
   await fs.mkdir(path.dirname(filePath), { recursive: true });
