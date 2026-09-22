@@ -1,0 +1,48 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1789680242827,
+      "tag": "0001_overconfident_mad_thinker",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1789680693414,
+      "tag": "0002_magical_alex_wilder",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1789685528055,
+      "tag": "0003_shallow_robin_chapel",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1789685899658,
+      "tag": "0004_smart_butterfly",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1789733824787,
+      "tag": "0005_create_users",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1789735150544,
+      "tag": "0006_add_password_hash",
+      "breakpoints": true
+    }
+  ]
+}

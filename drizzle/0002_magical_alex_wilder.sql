@@ -1,0 +1,1 @@
+ALTER TABLE `priceSnapshots` MODIFY COLUMN `currency` varchar(8) NOT NULL DEFAULT 'EUR';
