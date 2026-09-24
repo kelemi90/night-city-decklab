@@ -1,3 +1,5 @@
+import { BETA_CARDS } from "./betaCatalog";
+
 export type CardKind = "legend" | "unit" | "gear" | "program";
 export type CardColor = "green" | "red" | "purple" | "yellow" | "blue" | "orange";
 
@@ -178,6 +180,8 @@ export const CATALOG_CARDS: CatalogCard[] = [
   { id: 150, name: "Les Élémens", subtitle: " ", kind: "program", color: "blue", cost: 5, ram: 4, rarity: "Uncommon", setName: "Welcome to Night City — Retail", marketCents: 0, sourceUrl: "https://cyberpunktcg.com/cards/les-e-le-mens?printing=14a0b813-d5e3-46e6-a001-aebbd3a95f11", imageUrl: "https://dstcynss47vun.cloudfront.net/prod/cyberpunk/portal/14a0b813-d5e3-46e6-a001-aebbd3a95f11/render-mpvmf9j4.webp?Expires=1789682141&Key-Pair-Id=K3SGRHESIHQPEW&Signature=SrUUmc8O3v-O3wlPSHhFw69slnhDfh8Xa5wCRnHH3h4H72ANxrdkRk6PxxnQoyFMy0b8X-StNp48DAIPf3l6b3ip3LfBOVwfL~ACaJAQfZv9vXx19KjL5sBIZNkzlcs6qFxG~wvsnPlt5-yanPcqjMxqVEGfzYyXuQ6kIZVwgsypnebb4Im2vNtPHo29DCZm9A-hn3wHBIU-mKVio0SX2ccbsMWz5YsHhsxaSKWL0SubDfa4LvCjOaWbR5ShihI5J310e58O2xLhLkfpCWQh-sj9OX-n5PeQl48ZqtQ1PKPNY6B5oAG4F3NINZinmGScGs3CaRdXw9Wj1iRC5MNB-Q__", printingId: "14a0b813-d5e3-46e6-a001-aebbd3a95f11", collectorNumber: "133", edition: "retail" },
   { id: 151, name: "Towerfall", subtitle: " ", kind: "program", color: "blue", cost: 6, ram: 4, rarity: "Epic", setName: "Welcome to Night City — Retail", marketCents: 0, sourceUrl: "https://cyberpunktcg.com/cards/towerfall?printing=15920617-a06f-4302-9dfb-c85d3470c7eb", imageUrl: "https://dstcynss47vun.cloudfront.net/prod/cyberpunk/portal/15920617-a06f-4302-9dfb-c85d3470c7eb/render-mpvmjkr0.webp?Expires=1789682141&Key-Pair-Id=K3SGRHESIHQPEW&Signature=HnBxGxP7dVC86LXJk6AzH1wo5T-efFQ-p2xXbe5zOXWpIPbKQgC8cQnoP46lJb~PB8TjiB-xeKSMInmXHJlXpV6kGnpn~MJFwAzSSDIUezg-9iSIACSUPdC22uiOBfF-k-Amj8Vl6oZp-~aUQns08XP4~1~xsfBog7OSzpcgfsIT~QQrmcULRQQj1p6rZjuTZuu5FzzfJUvXnReUnoGI5MyS0GOa61CNR-~RheMcwsiTvcp8JJYW8JgFjKIj3mBQfHm82RphPt57Jzb6ZQi1HkpewLSN7zagS0CJC3eXAIxuDqOFfBA4spz0gIaG~T6rRybsREc1AhurlPudWzzCtQ__", printingId: "15920617-a06f-4302-9dfb-c85d3470c7eb", collectorNumber: "138", edition: "retail" },
 ];
+export const FULL_CATALOG: CatalogCard[] = [...CATALOG_CARDS, ...BETA_CARDS];
+
 
 export const COLOR_META: Record<CardColor, { label: string; hex: string }> = {
   green: { label: "Green", hex: "#b9f36b" },
@@ -191,13 +195,13 @@ export const COLOR_META: Record<CardColor, { label: string; hex: string }> = {
 export type DeckLine = { cardId: number; quantity: number };
 
 export function validateDeck(legendIds: number[], mainLines: DeckLine[]) {
-  const legends = legendIds.map((id) => CATALOG_CARDS.find((card) => card.id === id)).filter(Boolean) as CatalogCard[];
-  const mainCards = mainLines.map((line) => ({ ...line, card: CATALOG_CARDS.find((card) => card.id === line.cardId) })).filter((line) => line.card);
+  const legends = legendIds.map((id) => FULL_CATALOG.find((card) => card.id === id)).filter(Boolean) as CatalogCard[];
+  const mainCards = mainLines.map((line) => ({ ...line, card: FULL_CATALOG.find((card) => card.id === line.cardId) })).filter((line) => line.card);
   const totalMain = mainCards.reduce((sum, line) => sum + line.quantity, 0);
   const ram = legends.reduce<Record<CardColor, number>>((acc, card) => ({ ...acc, [card.color]: (acc[card.color] ?? 0) + card.ram }), {} as Record<CardColor, number>);
   const errors: string[] = [];
   if (legends.length !== 3) errors.push("Choose exactly 3 Legend cards.");
-  if (new Set(legendIds).size !== legendIds.length) errors.push("Legend names must be unique.");
+  if (new Set(legends.map((card) => card.name)).size !== legends.length) errors.push("Legend names must be unique.");
   if (totalMain < 40 || totalMain > 50) errors.push(`Main deck is ${totalMain}; it must be between 40 and 50 cards.`);
   for (const line of mainCards) {
     if (line.card?.kind === "legend") errors.push(`${line.card.name} is a Legend and belongs in the Legend row.`);

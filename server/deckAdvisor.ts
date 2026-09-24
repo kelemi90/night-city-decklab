@@ -1,5 +1,5 @@
 import { invokeLLM } from "./_core/llm";
-import { CATALOG_CARDS, validateDeck, type CatalogCard } from "../shared/deckRules";
+import { FULL_CATALOG, validateDeck, type CatalogCard } from "../shared/deckRules";
 
 type OwnedCard = CatalogCard & { ownedQuantity: number };
 export type StrategyGoal = "aggro" | "control" | "midrange" | "tempo";
@@ -95,7 +95,7 @@ export async function recommendDecks(owned: OwnedCard[], goals: StrategyGoal[], 
   return Promise.all(goals.map((goal) => recommendDeck(owned, goal, weights)));
 }
 
-export function ownedCatalogRows(collection: Array<{ cardId: number; quantity: number }>, cards = CATALOG_CARDS) {
+export function ownedCatalogRows(collection: Array<{ cardId: number; quantity: number }>, cards = FULL_CATALOG) {
   const byId = new Map(cards.map((card) => [card.id, card]));
   return collection.map((item) => { const card = byId.get(item.cardId); return card && item.quantity > 0 ? { ...card, ownedQuantity: item.quantity } : undefined; }).filter((card): card is OwnedCard => Boolean(card));
 }
