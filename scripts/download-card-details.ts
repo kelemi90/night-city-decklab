@@ -1,8 +1,11 @@
 import fs from "node:fs/promises";
 import { CATALOG_CARDS } from "../shared/deckRules";
+import { BETA_CARDS } from "../shared/betaCatalog";
 
 const API_BASE = "https://api.netdeck.gg/api";
 const OUTPUT = "client/public/card-art/details.json";
+
+const ALL_CARDS = [...CATALOG_CARDS, ...BETA_CARDS];
 
 type ApiCard = {
   rules_text: string | null;
@@ -25,7 +28,7 @@ type CardDetails = {
 };
 
 async function fetchCard(
-  card: (typeof CATALOG_CARDS)[number],
+  card: (typeof ALL_CARDS)[number],
 ): Promise<CardDetails> {
   const match = card.sourceUrl.match(/\/cards\/([^?]+)/);
 
@@ -72,14 +75,15 @@ async function main() {
 
   const details: Record<string, CardDetails> = {};
 
-  for (let index = 0; index < CATALOG_CARDS.length; index += 1) {
-    const card = CATALOG_CARDS[index];
+  for (let index = 0; index < ALL_CARDS.length; index += 1) {
+    const card = ALL_CARDS[index];
     const result = await fetchCard(card);
 
     details[String(card.id)] = result;
 
     console.log(
-      `[${index + 1}/${CATALOG_CARDS.length}] ${card.name}`,
+      `[${index + 1}/${ALL_CARDS.length}] ` +
+        `${card.edition === "beta" ? "BETA" : "RETAIL"} ${card.name}`,
     );
   }
 
@@ -90,7 +94,7 @@ async function main() {
   );
 
   console.log("");
-  console.log(`Wrote ${CATALOG_CARDS.length} card details to ${OUTPUT}`);
+  console.log(`Wrote ${ALL_CARDS.length} card details to ${OUTPUT}`);
 }
 
 main().catch((error) => {

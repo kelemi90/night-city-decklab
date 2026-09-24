@@ -2842,3 +2842,604 @@ body {
     width: 100%;
   }
 }
+/* =========================================================
+   Deck Lab - Legend builder
+   ========================================================= */
+
+.legend-builder-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 20px;
+}
+
+.legend-builder-card {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #29383d;
+  color: #dbe8dc;
+  text-align: left;
+  background: rgba(10, 17, 19, 0.82);
+  cursor: pointer;
+  transition:
+    transform 0.18s ease,
+    border-color 0.18s ease,
+    box-shadow 0.18s ease;
+}
+
+.legend-builder-card:hover {
+  transform: translateY(-3px);
+  border-color: #52666b;
+}
+
+.legend-builder-card.selected {
+  border-color: #b9f36b;
+  box-shadow:
+    inset 0 0 0 1px #b9f36b,
+    0 0 22px rgba(185, 243, 107, 0.08);
+}
+
+.legend-builder-card.name-conflict {
+  opacity: 0.72;
+}
+
+.legend-builder-art {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 0.72;
+  overflow: hidden;
+  background: #10191c;
+}
+
+.legend-builder-art::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 60%,
+    rgba(5, 9, 10, 0.72) 100%
+  );
+  pointer-events: none;
+}
+
+.legend-builder-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.legend-builder-selected {
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  right: 9px;
+  width: 25px;
+  height: 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid currentColor;
+  background: rgba(5, 9, 10, 0.82);
+}
+
+.legend-builder-card.selected .legend-builder-selected {
+  color: #b9f36b;
+  border-color: #b9f36b;
+}
+
+.legend-builder-body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 13px 14px 15px;
+}
+
+.legend-builder-title {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.legend-builder-title > div {
+  min-width: 0;
+}
+
+.legend-builder-title .eyebrow {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 7px;
+}
+
+.legend-builder-title h3 {
+  margin: 0;
+  color: #e4eee7;
+  font-size: 16px;
+  line-height: 1.1;
+}
+
+.legend-builder-title .ram-chip {
+  flex: 0 0 auto;
+  margin-top: 2px;
+  font-size: 7px;
+  white-space: nowrap;
+}
+
+.legend-builder-subtitle {
+  margin: 0;
+  min-height: 17px;
+  color: #91a49a;
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.legend-builder-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 9px;
+  padding-top: 9px;
+  border-top: 1px solid #263339;
+}
+
+.legend-builder-meta span {
+  color: #9eaea7;
+  font-size: 8px;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.legend-builder-meta b {
+  margin-right: 3px;
+  color: #647570;
+  font-weight: 500;
+}
+
+.legend-builder-set {
+  display: block;
+  color: #647570;
+  font-size: 8px;
+  line-height: 1.3;
+}
+
+.legend-builder-warning {
+  display: block;
+  padding-top: 2px;
+  color: #ffca72;
+  font-size: 8px;
+  line-height: 1.35;
+}
+
+.legend-builder-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 12px;
+  padding: 15px 18px;
+  border: 1px solid #29383d;
+  background: rgba(10, 17, 19, 0.72);
+}
+
+.legend-builder-footer > div {
+  min-width: 0;
+}
+
+.selected-legend-ram {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  margin-top: 6px;
+}
+
+.selected-legend-ram span {
+  padding: 5px 8px;
+  border: 1px solid #29383d;
+  color: #91a49a;
+  font-size: 8px;
+}
+
+.selected-legend-ram b {
+  color: #dbe8dc;
+  font-weight: 600;
+}
+
+.deck-step-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.deck-step-copy {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: #7f918a;
+  font-size: 10px;
+  line-height: 1.5;
+}
+
+/* Keep the three-card layout usable on smaller screens. */
+@media (max-width: 900px) {
+  .legend-builder-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 620px) {
+  .legend-builder-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .legend-builder-footer {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .deck-step-actions {
+    flex-wrap: wrap;
+  }
+}
+
+
+/* Deck version selector */
+
+.deck-edition-picker {
+  margin-top: 16px;
+}
+
+.deck-edition-picker > .eyebrow {
+  display: block;
+  margin-bottom: 7px;
+}
+
+.deck-pool-label {
+  display: block;
+  margin-top: 14px;
+}
+
+.deck-edition-options {
+  display: flex;
+  gap: 7px;
+  max-width: 430px;
+}
+
+.deck-edition-options button {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid #29383d;
+  background: rgba(10, 17, 19, 0.72);
+  color: #91a49a;
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.18s ease,
+    background 0.18s ease,
+    color 0.18s ease;
+}
+
+.deck-edition-options button:hover {
+  border-color: #52666b;
+  color: #dbe8dc;
+}
+
+.deck-edition-options button.active {
+  border-color: #b9f36b;
+  background: rgba(185, 243, 107, 0.07);
+  color: #dbe8dc;
+  box-shadow: inset 0 0 0 1px rgba(185, 243, 107, 0.2);
+}
+
+.deck-edition-options b,
+.deck-edition-options small {
+  display: block;
+}
+
+.deck-edition-options b {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.deck-edition-options small {
+  margin-top: 3px;
+  color: #647570;
+  font-size: 7px;
+}
+
+.deck-edition-options button.active small {
+  color: #91a49a;
+}
+
+@media (max-width: 620px) {
+  .deck-edition-options {
+    max-width: none;
+  }
+}
+
+/* =========================================================
+   DECK LAB / SELECTED LEGENDS
+   ========================================================= */
+
+.selected-legends-block {
+  overflow: visible;
+}
+
+.selected-legends-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 17px;
+}
+
+.selected-legend-summary {
+  display: grid;
+  grid-template-columns: 74px minmax(0, 1fr);
+  min-width: 0;
+  border: 1px solid;
+  overflow: hidden;
+  background: rgba(8, 13, 16, .92);
+}
+
+.selected-legend-summary-art {
+  min-height: 126px;
+  background: #080d10;
+  overflow: hidden;
+}
+
+.selected-legend-summary-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 126px;
+  object-fit: cover;
+}
+
+.selected-legend-summary-body {
+  min-width: 0;
+  padding: 11px;
+}
+
+.selected-legend-summary-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 7px;
+}
+
+.selected-legend-summary-heading .eyebrow {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.selected-legend-summary-heading h4 {
+  margin: 0;
+  color: #dbe6df;
+  font-size: 12px;
+  line-height: 1.15;
+}
+
+.selected-legend-summary-heading .ram-chip {
+  flex: 0 0 auto;
+  font-size: 7px;
+}
+
+.selected-legend-summary-subtitle {
+  margin: 5px 0 0;
+  color: #80918b;
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+.selected-legend-summary-rules {
+  margin-top: 8px;
+  color: #aebdb5;
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+.selected-legend-summary-rules p {
+  margin: 0 0 4px;
+}
+
+.selected-legend-summary-rules p:last-child {
+  margin-bottom: 0;
+}
+
+.selected-legend-summary-rules.muted {
+  color: #5e6d68;
+}
+
+.selected-legend-summary-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 8px;
+  margin-top: 9px;
+  color: #647570;
+  font-size: 7px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+}
+
+
+/* =========================================================
+   DECK LAB / MAIN CARD HOVER PREVIEW
+   ========================================================= */
+
+.deck-card-name-trigger {
+  position: relative;
+  width: fit-content;
+  max-width: 100%;
+}
+
+.deck-card-name-trigger > b {
+  cursor: help;
+  border-bottom: 1px dotted #52665d;
+}
+
+.deck-card-hover-preview {
+  position: absolute;
+  z-index: 100;
+  left: calc(100% + 14px);
+  top: 50%;
+  transform: translateY(-50%);
+  width: 450px;
+  display: grid;
+  grid-template-columns: 135px minmax(0, 1fr);
+  gap: 0;
+  border: 1px solid #40534b;
+  background: rgba(8, 12, 15, .98);
+  box-shadow:
+    0 18px 45px rgba(0, 0, 0, .58),
+    0 0 0 1px rgba(185, 243, 107, .06);
+  pointer-events: none;
+}
+
+.deck-card-hover-art {
+  align-self: stretch;
+  min-height: 215px;
+  overflow: hidden;
+  background: #05090b;
+}
+
+.deck-card-hover-art img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 215px;
+  object-fit: cover;
+}
+
+.deck-card-hover-content {
+  min-width: 0;
+  padding: 12px;
+}
+
+.deck-card-hover-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.deck-card-hover-top .eyebrow {
+  margin: 0;
+}
+
+.deck-card-hover-top .ram-chip {
+  flex: 0 0 auto;
+  font-size: 7px;
+}
+
+.deck-card-hover-content h4 {
+  margin: 8px 0 10px;
+  color: #dbe6df;
+  font-size: 17px;
+  line-height: 1.2;
+}
+
+.deck-card-hover-classifications,
+.deck-card-hover-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 9px;
+}
+
+.deck-card-hover-classifications span,
+.deck-card-hover-keywords span {
+  padding: 4px 6px;
+  border: 1px solid #2c3b39;
+  color: #82968d;
+  font-size: 9px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+.deck-card-hover-keywords span {
+  border-color: #52613c;
+  color: #b9d38f;
+}
+
+/* The actual card ability / rules text */
+.deck-card-hover-rules {
+  margin-top: 9px;
+  padding: 10px 0 0;
+  border-top: 1px solid #34433f;
+  color: #d2ddd6;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.deck-card-hover-rules p {
+  margin: 0 0 7px;
+}
+
+.deck-card-hover-rules p:last-child {
+  margin-bottom: 0;
+}
+
+.deck-card-hover-flavor {
+  margin-top: 10px;
+  padding-top: 9px;
+  border-top: 1px solid #253237;
+  color: #82918b;
+  font-size: 10px;
+  font-style: italic;
+  line-height: 1.45;
+}
+
+.deck-card-hover-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  margin-top: 10px;
+  color: #64746e;
+  font-size: 8px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+}
+
+
+/* =========================================================
+   DECK LAB / RESPONSIVE
+   ========================================================= */
+
+@media (max-width: 1100px) {
+  .deck-card-hover-preview {
+    left: auto;
+    right: calc(100% + 14px);
+  }
+
+  .selected-legends-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .selected-legends-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .selected-legend-summary {
+    grid-template-columns: 64px minmax(0, 1fr);
+  }
+
+  .selected-legend-summary-art,
+  .selected-legend-summary-art img {
+    min-height: 110px;
+  }
+
+  .deck-card-hover-preview {
+    display: none;
+  }
+
+  .deck-card-name-trigger > b {
+    border-bottom: 0;
+    cursor: default;
+  }
+}

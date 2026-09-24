@@ -16,7 +16,7 @@ import { parseCollectionCsv } from "@/lib/collectionCsv";
 import { CATALOG_CARDS, COLOR_META, type CardColor, type CatalogCard, validateDeck } from "@shared/deckRules";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Activity as ActivityIcon, Camera, Check, ChevronRight, CircleDollarSign, Clipboard, Crosshair, Database, Download, ExternalLink, FolderKanban, Grid2X2, LayoutDashboard, LogIn, Minus, Package, Plus, RefreshCw, ScanLine, Share2, ShieldCheck, Sparkles, Upload, X, Zap } from "lucide-react";
+import { Activity as ActivityIcon, Camera, Check, ChevronLeft, ChevronRight, CircleDollarSign, Clipboard, Crosshair, Database, Download, ExternalLink, FolderKanban, Grid2X2, LayoutDashboard, LogIn, Minus, Package, Plus, RefreshCw, ScanLine, Share2, ShieldCheck, Sparkles, Upload, X, Zap } from "lucide-react";
 import { getCardArtUrl } from "@/lib/cardArt";
 import { loadCardDetails, formatRulesText, type CardDetails } from "@/lib/cardDetails";
 
@@ -2379,13 +2379,218 @@ function ActivityView({ isAuthenticated, onAuthRequired }: { isAuthenticated: bo
   return <section className="content-section"><div className="section-head"><div><span className="eyebrow">Operator log / server-synced</span><h2>Recent activity</h2></div><span className="count-pill">{events?.length ?? 0} events</span></div>{isLoading ? <div className="activity-empty"><RefreshCw className="spin" size={17} /> Loading timeline…</div> : events?.length ? <div className="activity-list">{events.map((event) => <article className="activity-row" key={event.id}><span className={`activity-icon ${event.kind}`}><ActivityIcon size={15} /></span><div><b>{event.title}</b><p>{event.detail}</p></div><time>{new Date(event.createdAt).toLocaleString()}</time></article>)}</div> : <div className="activity-empty"><ActivityIcon size={18} /><b>No activity yet</b><span>Scan a card, save a deck, or generate an AI recommendation to start your timeline.</span></div>}<PrivacyControls /></section>;
 }
 
+function DeckCardHoverPreview({
+  card,
+  details,
+}: {
+  card: CatalogCard;
+  details?: CardDetails;
+}) {
+  const classifications = details?.classifications ?? [];
+  const keywords = details?.keywords ?? [];
+  const rulesText = details?.rulesText
+    ? formatRulesText(details.rulesText)
+    : "";
+
+  return (
+    <div
+      className="deck-card-hover-preview"
+      onMouseDown={(event) => event.preventDefault()}
+    >
+      <div className="deck-card-hover-art">
+        <img
+          src={getCardArtUrl(card)}
+          alt={card.name}
+          loading="lazy"
+        />
+      </div>
+
+      <div className="deck-card-hover-content">
+        <div className="deck-card-hover-top">
+          <span className="eyebrow">
+            {details?.cardType ?? card.kind}
+          </span>
+
+          <span className="ram-chip">
+            {COLOR_META[card.color as CardColor]?.label} RAM {card.ram}
+          </span>
+        </div>
+
+        <h4>{card.name}</h4>
+
+        {classifications.length > 0 && (
+          <div className="deck-card-hover-classifications">
+            {classifications.map((classification) => (
+              <span key={classification}>{classification}</span>
+            ))}
+          </div>
+        )}
+
+        {keywords.length > 0 && (
+          <div className="deck-card-hover-keywords">
+            {keywords.map((keyword) => (
+              <span key={keyword}>{keyword}</span>
+            ))}
+          </div>
+        )}
+
+        {rulesText && (
+          <div className="deck-card-hover-rules">
+            {rulesText.split("\n").map((line, index) => (
+              <p key={`${card.id}-hover-rule-${index}`}>{line}</p>
+            ))}
+          </div>
+        )}
+
+        {details?.flavorText && (
+          <div className="deck-card-hover-flavor">
+            {details.flavorText}
+          </div>
+        )}
+
+        <div className="deck-card-hover-meta">
+          <span>
+            {card.edition === "beta" ? "Beta" : "Retail"}
+          </span>
+
+          {card.collectorNumber && (
+            <span>#{card.collectorNumber}</span>
+          )}
+
+          <span>{card.rarity}</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SelectedLegendSummary({
+  card,
+}: {
+  card: CatalogCard;
+}) {
+  const [details, setDetails] = useState<CardDetails>();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadCardDetails().then((allDetails) => {
+      if (!cancelled) {
+        setDetails(allDetails[card.id]);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [card.id]);
+
+  const rulesText = details?.rulesText
+    ? formatRulesText(details.rulesText)
+    : "";
+
+  return (
+    <article
+      className="selected-legend-summary"
+      style={cardTone(card.color)}
+    >
+      <div className="selected-legend-summary-art">
+        <img
+          src={getCardArtUrl(card)}
+          alt={card.name}
+          loading="lazy"
+        />
+      </div>
+
+      <div className="selected-legend-summary-body">
+        <div className="selected-legend-summary-heading">
+          <div>
+            <span className="eyebrow">Legend</span>
+            <h4>{card.name}</h4>
+          </div>
+
+          <span className="ram-chip">
+            {COLOR_META[card.color as CardColor]?.label} RAM {card.ram}
+          </span>
+        </div>
+
+        {card.subtitle && (
+          <p className="selected-legend-summary-subtitle">
+            {card.subtitle}
+          </p>
+        )}
+
+        {rulesText ? (
+          <div className="selected-legend-summary-rules">
+            {rulesText.split("\n").map((line, index) => (
+              <p key={`${card.id}-legend-rule-${index}`}>
+                {line}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <p className="selected-legend-summary-rules muted">
+            Ability details unavailable.
+          </p>
+        )}
+
+        <div className="selected-legend-summary-meta">
+          <span>
+            {COLOR_META[card.color as CardColor]?.label} RAM
+          </span>
+
+          <span>
+            {card.edition === "beta" ? "Beta" : "Retail"}
+          </span>
+
+          {card.collectorNumber && (
+            <span>#{card.collectorNumber}</span>
+          )}
+        </div>
+      </div>
+    </article>
+  );
+}
+
 function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCard[]; isAuthenticated: boolean; onAuthRequired: () => void }) {
-  const [legends, setLegends] = useState<number[]>([1, 2]);
-  const [main, setMain] = useState<Record<number, number>>({ 8: 3, 9: 3, 10: 3, 11: 3, 12: 3, 13: 3, 14: 3, 15: 3, 16: 3 });
-  const [name, setName] = useState("Afterlife Protocol");
+  const [legends, setLegends] = useState<number[]>([]);
+  const [main, setMain] = useState<Record<number, number>>({});
+  const [hoveredMainCardId, setHoveredMainCardId] = useState<number>();
+  const [cardDetails, setCardDetails] = useState<Record<number, CardDetails>>({});
+  useEffect(() => {
+    let cancelled = false;
+
+    void loadCardDetails().then((allDetails) => {
+      if (!cancelled) {
+        setCardDetails(allDetails);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const [name, setName] = useState("Untitled Deck");
+  const [deckEdition, setDeckEdition] = useState<"retail" | "beta">("retail");
+  const [cardPool, setCardPool] = useState<"all" | "owned">("all");
+  const { data: collection } = trpc.collection.list.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
   const [savedDeckId, setSavedDeckId] = useState<number>();
   const [shareExpiry, setShareExpiry] = useState("");
   const [shareToken, setShareToken] = useState<string>();
+  const decksQuery = trpc.decks.list.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const [deckMode, setDeckMode] = useState<"home" | "create" | "edit">("home");
+  const [builderStep, setBuilderStep] = useState<1 | 2>(1);
+  const [selectedDeckId, setSelectedDeckId] = useState<number>();
+  const selectedDeckCardsQuery = trpc.decks.cards.useQuery(
+    { deckId: selectedDeckId! },
+    {
+      enabled: isAuthenticated && deckMode === "edit" && selectedDeckId !== undefined,
+    },
+  );
   const validation = validateDeck(legends, Object.entries(main).filter(([, quantity]) => quantity > 0).map(([cardId, quantity]) => ({ cardId: Number(cardId), quantity })));
   const saveCards = trpc.decks.saveCards.useMutation({ onSuccess: () => toast.success("Deck saved with its full card list."), onError: (error) => toast.error(error.message) });
   const createDeck = trpc.decks.create.useMutation({ onSuccess: (deck) => { setSavedDeckId(Number(deck.id)); saveCards.mutate({ deckId: Number(deck.id), legends: legends.map((cardId) => ({ cardId, quantity: 1 })), main: Object.entries(main).filter(([, quantity]) => quantity > 0).map(([cardId, quantity]) => ({ cardId: Number(cardId), quantity })) }); }, onError: (error) => toast.error(error.message) });
@@ -2395,11 +2600,75 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
   const [weights, setWeights] = useState({ speed: 50, control: 50, budget: 50 });
   const advisor = trpc.advisor.recommendMany.useMutation({ onSuccess: (result) => { setAdvisorResults(result); toast.success(`AI found ${result.length} legal strategy options from your collection.`); }, onError: (error) => toast.error(error.message) });
   const [advisorResults, setAdvisorResults] = useState<NonNullable<ReturnType<typeof trpc.advisor.recommendMany.useMutation>["data"]>>([]);
-  const legendCards = cards.filter((card) => card.kind === "legend");
-  const mainCards = cards.filter((card) => card.kind !== "legend");
+  const ownedCardIds = new Set(
+    (collection ?? [])
+      .filter((item) => item.quantity > 0)
+      .map((item) => item.cardId),
+  );
+
+  const poolCards =
+    cardPool === "owned"
+      ? cards.filter((card) => ownedCardIds.has(card.id))
+      : cards;
+  const editionCards = poolCards.filter(
+    (card) => (card.edition ?? "retail") === deckEdition,
+  );
+
+  const legendCards = editionCards.filter(
+    (card) => card.kind === "legend",
+  );
+
+  const mainCards = editionCards.filter(
+    (card) => card.kind !== "legend",
+  );
+
+  const selectedLegendCards = legends
+    .map((id) => cards.find((card) => card.id === id))
+    .filter((card): card is CatalogCard => Boolean(card));
+
+  const availableRam = selectedLegendCards.reduce<Record<CardColor, number>>(
+    (ram, legend) => ({
+      ...ram,
+      [legend.color]: (ram[legend.color] ?? 0) + legend.ram,
+    }),
+    {} as Record<CardColor, number>,
+  );
+
+  const availableMainCards = mainCards.filter(
+    (card) => card.ram <= (availableRam[card.color] ?? 0),
+  );
+
   function updateWeight(key: keyof typeof weights, value: number) { setWeights((current) => ({ ...current, [key]: value })); }
   function applyPreset(preset: (typeof WEIGHT_PRESETS)[number]) { setStrategyGoals(preset.goals); setWeights(preset.weights); toast.success(`${preset.label} preset applied.`); }
-  function toggleLegend(id: number) { setLegends((current) => current.includes(id) ? current.filter((item) => item !== id) : current.length < 3 ? [...current, id] : current); }
+  function toggleLegend(id: number) {
+    setLegends((current) => {
+      if (current.includes(id)) {
+        return current.filter((item) => item !== id);
+      }
+
+      if (current.length >= 3) {
+        return current;
+      }
+
+      const card = cards.find((item) => item.id === id);
+
+      if (!card) {
+        return current;
+      }
+
+      const duplicateName = current.some((selectedId) => {
+        const selected = cards.find((item) => item.id === selectedId);
+        return selected?.name === card.name;
+      });
+
+      if (duplicateName) {
+        toast.error(`${card.name} is already selected.`);
+        return current;
+      }
+
+      return [...current, id];
+    });
+  }
   function bump(id: number, delta: number) { setMain((current) => ({ ...current, [id]: Math.max(0, Math.min(3, (current[id] ?? 0) + delta)) })); }
   const exportText = formatDeckExport(name, legends.map((cardId) => ({ cardId, quantity: 1 })), Object.entries(main).filter(([, quantity]) => quantity > 0).map(([cardId, quantity]) => ({ cardId: Number(cardId), quantity })), cards);
   async function copyDeckExport() { await navigator.clipboard.writeText(exportText); toast.success("Deck export copied to clipboard."); }
@@ -2411,7 +2680,464 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
     setName(advisorResult.name);
     toast.success("AI recommendation loaded into the deck lab.");
   }
-  return <section className="content-section"><div className="section-head"><div><span className="eyebrow">Deck lab / RAM-aware builder</span><h2>Assemble your crew</h2></div><div className="deck-export-actions"><Button variant="outline" size="sm" onClick={() => void copyDeckExport()}><Clipboard size={14} />Copy export</Button><Button variant="outline" size="sm" onClick={downloadDeckExport}><Download size={14} />Download .txt</Button></div><div className="deck-name"><input value={name} onChange={(event) => setName(event.target.value)} /><Button size="sm" onClick={() => { if (!isAuthenticated) { onAuthRequired(); return; } if (!validation.legal) { toast.error("Fix the deck legality warnings before saving."); return; } createDeck.mutate({ name }); }}><Database size={14} />Save deck</Button>{savedDeckId && <><label className="share-expiry"><span>Link expiry</span><input type="datetime-local" value={shareExpiry} onChange={(event) => setShareExpiry(event.target.value)} /></label><Button variant="outline" size="sm" onClick={() => shareDeck.mutate({ deckId: savedDeckId, expiresAt: shareExpiry ? new Date(shareExpiry) : null })} disabled={shareDeck.isPending}><Share2 size={14} />{shareToken ? "Update link" : "Share link"}</Button>{shareToken && <Button variant="outline" size="sm" onClick={() => revokeShare.mutate({ deckId: savedDeckId })} disabled={revokeShare.isPending}><X size={14} />Revoke</Button>}</>}</div></div><div className="advisor-card"><div className="advisor-copy"><span className="eyebrow lime">AI DECK ADVISOR / COMPARE BUILDS</span><h3>{advisorResults.length ? `${advisorResults.length} strategies ready to compare` : "Find the strongest deck in your binder"}</h3><p>Choose one or more goals. Each candidate uses only owned cards and is checked against the official RAM and deck-building rules.</p><div className="preset-library"><span className="preset-label">Saved presets</span><div className="preset-list">{WEIGHT_PRESETS.map((preset) => <button key={preset.id} type="button" className="preset-button" onClick={() => applyPreset(preset)}><b>{preset.label}</b><small>{preset.detail}</small></button>)}</div></div><div className="weight-controls">{(["speed", "control", "budget"] as const).map((key) => <label key={key}><span><b>{key}</b><output>{weights[key]}</output></span><input type="range" min="0" max="100" step="5" value={weights[key]} onChange={(event) => updateWeight(key, Number(event.target.value))} /></label>)}</div><div className="strategy-picker">{STRATEGY_GOALS.map((goal) => <button key={goal.id} type="button" className={`strategy-chip ${strategyGoals.includes(goal.id) ? "selected" : ""}`} onClick={() => setStrategyGoals((current) => current.includes(goal.id) ? current.filter((item) => item !== goal.id) : current.length < 3 ? [...current, goal.id] : current)}><b>{goal.label}</b><small>{goal.detail}</small></button>)}</div><div className="advisor-actions"><Button onClick={() => { if (!isAuthenticated) { onAuthRequired(); return; } if (!strategyGoals.length) { toast.error("Choose at least one strategy goal."); return; } advisor.mutate({ goals: strategyGoals, weights }); }} disabled={advisor.isPending}><Sparkles size={15} />{advisor.isPending ? "Comparing strategies…" : `Compare ${strategyGoals.length || "selected"} builds`}</Button></div></div>{advisorResults.length > 0 && <div className="advisor-comparison">{advisorResults.map((result) => <article className="advisor-result" key={result.strategy}><div className="advisor-result-head"><span className="eyebrow">{result.strategy}</span><strong>{result.name}</strong></div><p>{result.summary}</p><div className="advisor-meta"><span>{result.totalMain} main cards</span><span>{result.legends.length} Legends</span></div><div className="advisor-reasons">{result.whyLegends.slice(0, 2).map((reason) => <span key={reason}>{reason}</span>)}</div><Button size="sm" variant="outline" onClick={() => applyRecommendation(result)}>Use this build <ChevronRight size={13} /></Button></article>)}</div>}{advisorResults.length > 1 && <div className="advisor-diff"><div className="advisor-diff-head"><div><span className="eyebrow">CARD-BY-CARD DIFF</span><h4>Where the builds diverge</h4></div><small>Shared cards stay dim; quantity changes glow.</small></div><div className="diff-table"><div className="diff-row diff-heading"><span>Card</span>{advisorResults.map((result) => <span key={result.strategy}>{result.strategy}</span>)}</div>{comparisonRows(advisorResults, cards).map((row) => <div className="diff-row" key={row.card.id}><span className="diff-card"><i style={{ background: COLOR_META[row.card.color]?.hex }} />{row.card.name}</span>{row.quantities.map((quantity, index) => <span className={`diff-cell ${quantity === 0 ? "empty" : index === 0 || quantity === row.quantities[0] ? "same" : "changed"}`} key={`${row.card.id}-${index}`}>{quantity || "—"}</span>)}</div>)}</div></div>}</div><div className="deck-layout"><div className="deck-main"><div className="deck-block"><div className="block-head"><div><span className="eyebrow">01 / Legends</span><h3>Pick three unique names</h3></div><span className="count-pill">{legends.length} / 3</span></div><div className="legend-row">{legendCards.map((card) => <button key={card.id} className={`legend-pick ${legends.includes(card.id) ? "picked" : ""}`} style={cardTone(card.color)} onClick={() => toggleLegend(card.id)}><span className="legend-pick-mark">{legends.includes(card.id) ? <Check size={14} /> : <Plus size={14} />}</span><span className="mini-symbol">{card.name.slice(0, 1)}</span><b>{card.name}</b><small>{card.subtitle}</small><span className="ram-chip">{COLOR_META[card.color as CardColor]?.label} RAM {card.ram}</span></button>)}</div></div><div className="deck-block"><div className="block-head"><div><span className="eyebrow">02 / Main deck</span><h3>Build the 40–50 card core</h3></div><span className={`count-pill ${validation.totalMain >= 40 && validation.totalMain <= 50 ? "good" : "warn"}`}>{validation.totalMain} / 50</span></div><div className="deck-card-list">{mainCards.map((card) => <div className="deck-card-line" key={card.id}><div className="line-orb" style={{ background: COLOR_META[card.color as CardColor]?.hex }} /><div className="line-name"><b>{card.name}</b><small>{card.kind} · {COLOR_META[card.color as CardColor]?.label} RAM {card.ram}</small></div><span className="line-price">{money(card.marketCents)}</span><div className="stepper"><button onClick={() => bump(card.id, -1)}><Minus size={13} /></button><b>{main[card.id] ?? 0}</b><button onClick={() => bump(card.id, 1)}><Plus size={13} /></button></div></div>)}</div></div></div><aside className="rules-card"><div className="rules-top"><span className="eyebrow">Legality check</span>{validation.legal ? <span className="legal-badge"><Check size={14} />LEGAL</span> : <span className="illegal-badge"><X size={14} />IN PROGRESS</span>}</div><div className="rules-score"><strong>{validation.totalMain}</strong><span>main cards</span></div><div className="ram-bars">{Object.entries(validation.ram).filter(([, value]) => value > 0).map(([color, value]) => <div className="ram-bar" key={color}><div><span style={{ color: COLOR_META[color as CardColor]?.hex }}>{COLOR_META[color as CardColor]?.label} RAM</span><b>{value}</b></div><div className="bar-track"><span style={{ width: `${Math.min(100, value * 25)}%`, background: COLOR_META[color as CardColor]?.hex }} /></div></div>)}</div><div className="rules-copy"><b>RAM protocol</b><p>Your three Legends set the maximum RAM value for each color. Every card must stay within its color ceiling.</p></div><div className="validation-list">{validation.errors.length ? validation.errors.slice(0, 5).map((error) => <div key={error}><X size={14} />{error}</div>) : <div className="valid-line"><Check size={14} />Deck meets the published build rules.</div>}</div><a className="rules-link" href="https://cyberpunktcg.com/gameplay-guide#gameplay-guide-deck-building-ram" target="_blank" rel="noreferrer">Read official deck rules <ExternalLink size={14} /></a></aside></div></section>;
+
+  useEffect(() => {
+    if (
+      deckMode !== "edit" ||
+      selectedDeckId === undefined ||
+      !selectedDeckCardsQuery.data
+    ) {
+      return;
+    }
+
+    const savedLegends = selectedDeckCardsQuery.data
+      .filter((line) => line.slot === "legend")
+      .map((line) => line.cardId);
+
+    const savedCardIds = selectedDeckCardsQuery.data.map(
+      (line) => line.cardId,
+    );
+
+    const savedCards = savedCardIds
+      .map((cardId) => cards.find((card) => card.id === cardId))
+      .filter((card): card is CatalogCard => Boolean(card));
+
+    const hasBetaCards = savedCards.some(
+      (card) => card.edition === "beta",
+    );
+
+    setDeckEdition(hasBetaCards ? "beta" : "retail");
+
+    const savedMain = Object.fromEntries(
+      selectedDeckCardsQuery.data
+        .filter((line) => line.slot === "main")
+        .map((line) => [line.cardId, line.quantity]),
+    );
+
+    setLegends(savedLegends);
+    setMain(savedMain);
+    setBuilderStep(2);
+  }, [deckMode, selectedDeckId, selectedDeckCardsQuery.data, cards]);
+
+  function startNewDeck() {
+    setDeckMode("create");
+    setBuilderStep(1);
+    setSelectedDeckId(undefined);
+    setSavedDeckId(undefined);
+    setShareToken(undefined);
+    setShareExpiry("");
+    setLegends([]);
+    setMain({});
+    setName("Untitled Deck");
+    setDeckEdition("retail");
+  }
+
+  function openSavedDeck(deck: { id: number; name: string }) {
+    setDeckMode("edit");
+    setBuilderStep(2);
+    setSelectedDeckId(Number(deck.id));
+    setSavedDeckId(Number(deck.id));
+    setName(deck.name);
+    setShareToken(undefined);
+    setShareExpiry("");
+  }
+
+  function backToDeckList() {
+    setDeckMode("home");
+    setBuilderStep(1);
+    setSelectedDeckId(undefined);
+    setSavedDeckId(undefined);
+    setShareToken(undefined);
+    setShareExpiry("");
+  }
+
+  if (deckMode === "home") {
+    return (
+      <section className="content-section">
+        <div className="section-head">
+          <div>
+            <span className="eyebrow">Deck lab / saved builds</span>
+            <h2>Your decks</h2>
+          </div>
+          <Button onClick={startNewDeck}>
+            <Plus size={15} />
+            New deck
+          </Button>
+        </div>
+
+        {!isAuthenticated ? (
+          <div className="deck-home-empty">
+            <Database size={24} />
+            <div>
+              <b>Sign in to see your saved decks</b>
+              <span>
+                You can still build a deck in demo mode, but saved decks are
+                tied to your account.
+              </span>
+            </div>
+            <Button size="sm" onClick={onAuthRequired}>
+              <LogIn size={14} />
+              Sign in
+            </Button>
+          </div>
+        ) : decksQuery.isLoading ? (
+          <div className="deck-home-empty">
+            <RefreshCw className="spin" size={18} />
+            <span>Loading your decks…</span>
+          </div>
+        ) : decksQuery.data?.length ? (
+          <div className="saved-deck-grid">
+            {decksQuery.data.map((deck) => (
+              <button
+                key={deck.id}
+                type="button"
+                className="saved-deck-card"
+                onClick={() => openSavedDeck(deck)}
+              >
+                <span className="eyebrow">Saved deck</span>
+                <strong>{deck.name}</strong>
+                <span>
+                  Updated{" "}
+                  {new Date(deck.updatedAt).toLocaleDateString()}
+                </span>
+                <ChevronRight size={17} />
+              </button>
+            ))}
+          </div>
+        ) : (
+          <div className="deck-home-empty">
+            <Database size={24} />
+            <div>
+              <b>No decks yet</b>
+              <span>Create your first deck by choosing three Legends.</span>
+            </div>
+            <Button size="sm" onClick={startNewDeck}>
+              <Plus size={14} />
+              Create first deck
+            </Button>
+          </div>
+        )}
+      </section>
+    );
+  }
+
+  if (deckMode === "create" && builderStep === 1) {
+    return (
+      <section className="content-section">
+        <div className="section-head">
+          <div>
+            <span className="eyebrow">Deck lab / 01 of 02</span>
+            <h2>Choose your Legends</h2>
+            <p className="deck-step-copy">
+              Select three unique Legend names. Their color and RAM determine
+              which cards can enter your main deck.
+            </p>
+            <div className="deck-edition-picker">
+              <span className="eyebrow">Deck version</span>
+              <div className="deck-edition-options">
+                <button
+                  type="button"
+                  className={deckEdition === "retail" ? "active" : ""}
+                  onClick={() => {
+                    setDeckEdition("retail");
+                    setLegends([]);
+                    setMain({});
+                  }}
+                >
+                  <b>Retail</b>
+                  <small>Official retail cards</small>
+                </button>
+
+                <button
+                  type="button"
+                  className={deckEdition === "beta" ? "active" : ""}
+                  onClick={() => {
+                    setDeckEdition("beta");
+                    setLegends([]);
+                    setMain({});
+                  }}
+                >
+                  <b>Beta</b>
+                  <small>Beta card pool</small>
+                </button>
+              </div>
+
+              <span className="eyebrow deck-pool-label">Card pool</span>
+              <div className="deck-edition-options">
+                <button
+                  type="button"
+                  className={cardPool === "all" ? "active" : ""}
+                  onClick={() => setCardPool("all")}
+                >
+                  <b>All</b>
+                  <small>All cards in this edition</small>
+                </button>
+
+                <button
+                  type="button"
+                  className={cardPool === "owned" ? "active" : ""}
+                  onClick={() => setCardPool("owned")}
+                >
+                  <b>Owned</b>
+                  <small>Cards in your collection</small>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div className="deck-step-actions">
+            <Button variant="outline" size="sm" onClick={backToDeckList}>
+              <ChevronLeft size={14} />
+              Back to decks
+            </Button>
+            <span className="count-pill">
+              {legends.length} / 3 selected
+            </span>
+          </div>
+        </div>
+
+        <div className="legend-builder-grid">
+          {legendCards.map((card) => {
+            const selected = legends.includes(card.id);
+            const sameNameSelected = selectedLegendCards.some(
+              (legend) => legend.name === card.name && legend.id !== card.id,
+            );
+
+            return (
+              <button
+                key={card.id}
+                type="button"
+                className={`legend-builder-card ${selected ? "selected" : ""
+                  } ${sameNameSelected ? "name-conflict" : ""}`}
+                style={cardTone(card.color)}
+                onClick={() => toggleLegend(card.id)}
+              >
+                <div className="legend-builder-art">
+                  <img
+                    src={getCardArtUrl(card)}
+                    alt={card.name}
+                    loading="lazy"
+                  />
+                  <span className="legend-builder-selected">
+                    {selected ? <Check size={14} /> : <Plus size={14} />}
+                  </span>
+                </div>
+
+                <div className="legend-builder-body">
+                  <div className="legend-builder-title">
+                    <div>
+                      <span className="eyebrow">Legend</span>
+                      <h3>{card.name}</h3>
+                    </div>
+                    <span className="ram-chip">
+                      {COLOR_META[card.color as CardColor]?.label} RAM{" "}
+                      {card.ram}
+                    </span>
+                  </div>
+
+                  {card.subtitle && (
+                    <p className="legend-builder-subtitle">
+                      {card.subtitle}
+                    </p>
+                  )}
+
+                  <div className="legend-builder-meta">
+                    <span>
+                      <b>Color</b>
+                      {COLOR_META[card.color as CardColor]?.label}
+                    </span>
+                    <span>
+                      <b>Rarity</b>
+                      {card.rarity}
+                    </span>
+                    <span>
+                      <b>Edition</b>
+                      {card.edition === "beta" ? "Beta" : "Retail"}
+                    </span>
+                    {card.collectorNumber && (
+                      <span>
+                        <b>Collector</b>
+                        {card.collectorNumber}
+                      </span>
+                    )}
+                  </div>
+
+                  <small className="legend-builder-set">
+                    {card.setName}
+                  </small>
+
+                  {sameNameSelected && !selected && (
+                    <span className="legend-builder-warning">
+                      Another printing of this Legend is already selected.
+                    </span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="legend-builder-footer">
+          <div>
+            <span className="eyebrow">RAM preview</span>
+            <div className="selected-legend-ram">
+              {Object.entries(availableRam).length ? (
+                Object.entries(availableRam).map(([color, value]) => (
+                  <span key={color}>
+                    {COLOR_META[color as CardColor]?.label} RAM{" "}
+                    <b>{value}</b>
+                  </span>
+                ))
+              ) : (
+                <span>Select Legends to establish your RAM limits.</span>
+              )}
+            </div>
+          </div>
+
+          <Button
+            disabled={legends.length !== 3}
+            onClick={() => {
+              setBuilderStep(2);
+              setMain({});
+            }}
+          >
+            Continue to main deck
+            <ChevronRight size={15} />
+          </Button>
+        </div>
+      </section>
+    );
+  }
+
+  return <section className="content-section"><div className="section-head"><div><span className="eyebrow">Deck lab / RAM-aware builder</span><h2>Assemble your crew</h2></div><div className="deck-export-actions"><Button variant="outline" size="sm" onClick={() => void copyDeckExport()}><Clipboard size={14} />Copy export</Button><Button variant="outline" size="sm" onClick={downloadDeckExport}><Download size={14} />Download .txt</Button></div><div className="deck-name"><input value={name} onChange={(event) => setName(event.target.value)} /><Button size="sm" onClick={() => { if (!isAuthenticated) { onAuthRequired(); return; } if (!validation.legal) { toast.error("Fix the deck legality warnings before saving."); return; } createDeck.mutate({ name }); }}><Database size={14} />Save deck</Button>{savedDeckId && <><label className="share-expiry"><span>Link expiry</span><input type="datetime-local" value={shareExpiry} onChange={(event) => setShareExpiry(event.target.value)} /></label><Button variant="outline" size="sm" onClick={() => shareDeck.mutate({ deckId: savedDeckId, expiresAt: shareExpiry ? new Date(shareExpiry) : null })} disabled={shareDeck.isPending}><Share2 size={14} />{shareToken ? "Update link" : "Share link"}</Button>{shareToken && <Button variant="outline" size="sm" onClick={() => revokeShare.mutate({ deckId: savedDeckId })} disabled={revokeShare.isPending}><X size={14} />Revoke</Button>}</>}</div></div><div className="advisor-card"><div className="advisor-copy"><span className="eyebrow lime">AI DECK ADVISOR / COMPARE BUILDS</span><h3>{advisorResults.length ? `${advisorResults.length} strategies ready to compare` : "Find the strongest deck in your binder"}</h3><p>Choose one or more goals. Each candidate uses only owned cards and is checked against the official RAM and deck-building rules.</p><div className="preset-library"><span className="preset-label">Saved presets</span><div className="preset-list">{WEIGHT_PRESETS.map((preset) => <button key={preset.id} type="button" className="preset-button" onClick={() => applyPreset(preset)}><b>{preset.label}</b><small>{preset.detail}</small></button>)}</div></div><div className="weight-controls">{(["speed", "control", "budget"] as const).map((key) => <label key={key}><span><b>{key}</b><output>{weights[key]}</output></span><input type="range" min="0" max="100" step="5" value={weights[key]} onChange={(event) => updateWeight(key, Number(event.target.value))} /></label>)}</div><div className="strategy-picker">{STRATEGY_GOALS.map((goal) => <button key={goal.id} type="button" className={`strategy-chip ${strategyGoals.includes(goal.id) ? "selected" : ""}`} onClick={() => setStrategyGoals((current) => current.includes(goal.id) ? current.filter((item) => item !== goal.id) : current.length < 3 ? [...current, goal.id] : current)}><b>{goal.label}</b><small>{goal.detail}</small></button>)}</div><div className="advisor-actions"><Button onClick={() => { if (!isAuthenticated) { onAuthRequired(); return; } if (!strategyGoals.length) { toast.error("Choose at least one strategy goal."); return; } advisor.mutate({ goals: strategyGoals, weights }); }} disabled={advisor.isPending}><Sparkles size={15} />{advisor.isPending ? "Comparing strategies…" : `Compare ${strategyGoals.length || "selected"} builds`}</Button></div></div>{advisorResults.length > 0 && <div className="advisor-comparison">{advisorResults.map((result) => <article className="advisor-result" key={result.strategy}><div className="advisor-result-head"><span className="eyebrow">{result.strategy}</span><strong>{result.name}</strong></div><p>{result.summary}</p><div className="advisor-meta"><span>{result.totalMain} main cards</span><span>{result.legends.length} Legends</span></div><div className="advisor-reasons">{result.whyLegends.slice(0, 2).map((reason) => <span key={reason}>{reason}</span>)}</div><Button size="sm" variant="outline" onClick={() => applyRecommendation(result)}>Use this build <ChevronRight size={13} /></Button></article>)}</div>}{advisorResults.length > 1 && <div className="advisor-diff"><div className="advisor-diff-head"><div><span className="eyebrow">CARD-BY-CARD DIFF</span><h4>Where the builds diverge</h4></div><small>Shared cards stay dim; quantity changes glow.</small></div><div className="diff-table"><div className="diff-row diff-heading"><span>Card</span>{advisorResults.map((result) => <span key={result.strategy}>{result.strategy}</span>)}</div>{comparisonRows(advisorResults, cards).map((row) => <div className="diff-row" key={row.card.id}><span className="diff-card"><i style={{ background: COLOR_META[row.card.color]?.hex }} />{row.card.name}</span>{row.quantities.map((quantity, index) => <span className={`diff-cell ${quantity === 0 ? "empty" : index === 0 || quantity === row.quantities[0] ? "same" : "changed"}`} key={`${row.card.id}-${index}`}>{quantity || "—"}</span>)}</div>)}</div></div>}</div>
+    <div className="deck-layout">
+      <div className="deck-main">
+        <div className="deck-block selected-legends-block">
+          <div className="block-head">
+            <div>
+              <span className="eyebrow">Selected Legends</span>
+              <h3>Your crew defines the RAM ceiling</h3>
+            </div>
+
+            <span className="count-pill">
+              {legends.length} / 3
+            </span>
+          </div>
+
+          <div className="selected-legends-grid">
+            {selectedLegendCards.map((card) => (
+              <SelectedLegendSummary
+                key={card.id}
+                card={card}
+              />
+            ))}
+          </div>
+        </div>
+        <div className="deck-block">
+          <div className="block-head">
+            <div>
+              <span className="eyebrow">02 / Main deck</span>
+              <h3>Build the 40–50 card core</h3>
+            </div>
+            <span className={`count-pill ${validation.totalMain >= 40 && validation.totalMain <= 50 ? "good" : "warn"}`}>{validation.totalMain} / 50</span>
+          </div>
+          <div className="deck-card-list">
+            {availableMainCards.map((card) => (
+              <div
+                className="deck-card-line"
+                key={card.id}
+                onMouseLeave={() => setHoveredMainCardId(undefined)}
+              >
+                <div
+                  className="line-orb"
+                  style={{
+                    background:
+                      COLOR_META[card.color as CardColor]?.hex,
+                  }}
+                />
+
+                <div className="line-name">
+                  <div
+                    className="deck-card-name-trigger"
+                    onMouseEnter={() => setHoveredMainCardId(card.id)}
+                  >
+                    <b>{card.name}</b>
+
+                    {hoveredMainCardId === card.id && (
+                      <DeckCardHoverPreview
+                        card={card}
+                        details={cardDetails[card.id]}
+                      />
+                    )}
+                  </div>
+
+                  <small>
+                    {card.kind} ·{" "}
+                    {COLOR_META[card.color as CardColor]?.label} RAM{" "}
+                    {card.ram}
+                  </small>
+                </div>
+
+                <span className="line-price">
+                  {money(card.marketCents)}
+                </span>
+
+                <div className="stepper">
+                  <button
+                    type="button"
+                    onClick={() => bump(card.id, -1)}
+                    disabled={!main[card.id]}
+                  >
+                    <Minus size={13} />
+                  </button>
+
+                  <b>{main[card.id] ?? 0}</b>
+
+                  <button
+                    type="button"
+                    onClick={() => bump(card.id, 1)}
+                    disabled={(main[card.id] ?? 0) >= 3}
+                  >
+                    <Plus size={13} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+      <aside className="rules-card">
+        <div className="rules-top">
+          <span className="eyebrow">Legality check</span>{validation.legal ? <span className="legal-badge">
+            <Check size={14} />LEGAL</span> : <span className="illegal-badge"><X size={14} />IN PROGRESS</span>}
+        </div>
+        <div className="rules-score">
+          <strong>{validation.totalMain}</strong>
+          <span>main cards</span>
+        </div>
+        <div className="ram-bars">{Object.entries(validation.ram).filter(([, value]) => value > 0).map(([color, value]) => <div className="ram-bar" key={color}><div>
+          <span style={{ color: COLOR_META[color as CardColor]?.hex }}>{COLOR_META[color as CardColor]?.label} RAM</span>
+          <b>{value}</b>
+        </div>
+          <div className="bar-track">
+            <span style={{ width: `${Math.min(100, value * 25)}%`, background: COLOR_META[color as CardColor]?.hex }} />
+          </div>
+        </div>
+        )}
+        </div>
+        <div className="rules-copy"><b>RAM protocol</b>
+          <p>Your three Legends set the maximum RAM value for each color. Every card must stay within its color ceiling.</p>
+        </div>
+        <div className="validation-list">{validation.errors.length ? validation.errors.slice(0, 5).map((error) =>
+          <div key={error}>
+            <X size={14} />{error}</div>) : <div className="valid-line">
+          <Check size={14} />Deck meets the published build rules.</div>
+        }
+        </div>
+        <a className="rules-link" href="https://cyberpunktcg.com/gameplay-guide#gameplay-guide-deck-building-ram" target="_blank" rel="noreferrer">Read official deck rules <ExternalLink size={14} />
+        </a>
+      </aside>
+    </div>
+  </section>;
 }
 
 function Overview({ cards, isAuthenticated, setView, onAuthRequired }: { cards: CatalogCard[]; isAuthenticated: boolean; setView: (view: View) => void; onAuthRequired: () => void }) {
