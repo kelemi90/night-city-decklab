@@ -171,6 +171,12 @@ function MiniCard({
 
         <div className="mini-card-meta">
           <span>{card.rarity}</span>
+          <span>
+            {card.edition === "beta" ? "Beta" : "Retail"}
+            {card.collectorNumber
+              ? ` · ${card.collectorNumber}`
+              : ""}
+          </span>
           <span>{card.setName}</span>
         </div>
 
@@ -1134,8 +1140,8 @@ function CollectionCardDialog({
                                           : candidate.imageUrl
                                       }
                                       alt={`${candidate.name} ${candidate.edition === "beta"
-                                          ? "Beta"
-                                          : "Retail"
+                                        ? "Beta"
+                                        : "Retail"
                                         }`}
                                       style={{
                                         width: 48,
