@@ -221,12 +221,14 @@ function MiniCard({
 
 function CollectionCardDialog({
   card,
+  cards,
   scans,
   quantity,
   open,
   onClose,
 }: {
   card: CatalogCard | null;
+  cards: CatalogCard[];
   scans: Array<{
     id: number;
     frontImageUrl?: string | null;
@@ -239,7 +241,32 @@ function CollectionCardDialog({
   onClose: () => void;
 }) {
   const [scanSide, setScanSide] = useState<"front" | "back">("front");
+  const [selectedScanId, setSelectedScanId] = useState<number | null>(null);
   const [details, setDetails] = useState<CardDetails>();
+  const [isCorrecting, setIsCorrecting] = useState(false);
+  const [correctionQuery, setCorrectionQuery] = useState("");
+  const [correctionCardId, setCorrectionCardId] = useState<number | null>(null);
+  const [isChangingVersion, setIsChangingVersion] = useState(false);
+  const [versionCardId, setVersionCardId] = useState<number | null>(null);
+  const utils = trpc.useUtils();
+
+  const correctScan = trpc.scans.correct.useMutation({
+    onSuccess: () => {
+      void utils.collection.list.invalidate();
+      void utils.scans.list.invalidate();
+
+      toast.success("Scanned card corrected.");
+      setIsCorrecting(false);
+      setCorrectionQuery("");
+      setCorrectionCardId(null);
+      setIsChangingVersion(false);
+      setVersionCardId(null);
+      onClose();
+    },
+    onError: (error) => {
+      toast.error(error.message);
+    },
+  });
 
   useEffect(() => {
     if (!open || !card) {
@@ -247,6 +274,12 @@ function CollectionCardDialog({
     }
 
     setScanSide("front");
+    setSelectedScanId(scans[0]?.id ?? null);
+    setIsCorrecting(false);
+    setCorrectionQuery("");
+    setCorrectionCardId(null);
+    setIsChangingVersion(false);
+    setVersionCardId(null);
 
     let cancelled = false;
 
@@ -261,6 +294,42 @@ function CollectionCardDialog({
     };
   }, [open, card?.id]);
 
+  const correctionMatches = useMemo(() => {
+    const query = correctionQuery.trim().toLowerCase();
+
+    if (!query) {
+      return cards.slice(0, 20);
+    }
+
+    return cards
+      .filter((candidate) =>
+        [
+          String(candidate.id),
+          candidate.name,
+          candidate.subtitle ?? "",
+          candidate.setName,
+          candidate.rarity,
+          candidate.kind,
+        ]
+          .join(" ")
+          .toLowerCase()
+          .includes(query),
+      )
+      .slice(0, 30);
+  }, [cards, correctionQuery]);
+
+  const versionMatches = useMemo(() => {
+    if (!card) {
+      return [];
+    }
+
+    return cards.filter(
+      (candidate) =>
+        candidate.name === card.name &&
+        candidate.id !== card.id,
+    );
+  }, [cards, card]);
+
   if (!open || !card) {
     return null;
   }
@@ -271,7 +340,35 @@ function CollectionCardDialog({
     ? formatRulesText(details.rulesText)
     : "";
 
-  const selectedScan = scans[0];
+  const selectedScan =
+    scans.find((scan) => scan.id === selectedScanId) ?? scans[0];
+
+  const correctionCard =
+    cards.find((candidate) => candidate.id === correctionCardId) ?? null;
+
+  const recognitionStatus = selectedScan?.recognitionStatus;
+
+  const statusMeta =
+    recognitionStatus === "matched"
+      ? {
+        label: "Matched",
+        background: "rgba(34,197,94,.12)",
+        border: "rgba(34,197,94,.3)",
+        color: "#86efac",
+      }
+      : recognitionStatus === "review"
+        ? {
+          label: "Needs review",
+          background: "rgba(250,204,21,.12)",
+          border: "rgba(250,204,21,.3)",
+          color: "#fde68a",
+        }
+        : {
+          label: "Pending",
+          background: "rgba(148,163,184,.12)",
+          border: "rgba(148,163,184,.25)",
+          color: "#cbd5e1",
+        };
 
   const scanImage =
     scanSide === "front"
@@ -664,11 +761,164 @@ function CollectionCardDialog({
                 </div>
               ) : (
                 <>
+                  {scans.length > 1 && (
+                    <div style={{ marginTop: 12, marginBottom: 14 }}>
+                      <div
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          gap: 12,
+                          marginBottom: 8,
+                        }}
+                      >
+                        <span
+                          style={{
+                            fontSize: 11,
+                            textTransform: "uppercase",
+                            letterSpacing: ".08em",
+                            opacity: 0.5,
+                          }}
+                        >
+                          Saved scans
+                        </span>
+
+                        <span
+                          style={{
+                            fontSize: 11,
+                            opacity: 0.45,
+                          }}
+                        >
+                          {scans.length} total
+                        </span>
+                      </div>
+
+                      <div
+                        style={{
+                          display: "flex",
+                          flexWrap: "wrap",
+                          gap: 7,
+                        }}
+                      >
+                        {scans.map((scan, index) => {
+                          const isSelected =
+                            scan.id === selectedScan?.id;
+
+                          return (
+                            <button
+                              key={scan.id}
+                              type="button"
+                              onClick={() => {
+                                setSelectedScanId(scan.id);
+                                setScanSide(
+                                  scan.frontImageUrl
+                                    ? "front"
+                                    : "back",
+                                );
+                              }}
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 7,
+                                padding: "7px 10px",
+                                borderRadius: 8,
+                                border: isSelected
+                                  ? "1px solid rgba(185,243,107,.55)"
+                                  : "1px solid rgba(255,255,255,.1)",
+                                background: isSelected
+                                  ? "rgba(185,243,107,.09)"
+                                  : "rgba(255,255,255,.035)",
+                                color: isSelected
+                                  ? "#eaffc9"
+                                  : "#cbd5d1",
+                                cursor: "pointer",
+                                font: "inherit",
+                                fontSize: 11,
+                              }}
+                            >
+                              <span
+                                style={{
+                                  width: 6,
+                                  height: 6,
+                                  borderRadius: "50%",
+                                  background:
+                                    scan.recognitionStatus === "matched"
+                                      ? "#86efac"
+                                      : scan.recognitionStatus === "review"
+                                        ? "#fde68a"
+                                        : "#94a3b8",
+                                  flexShrink: 0,
+                                }}
+                              />
+                              Scan {index + 1}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {selectedScan && recognitionStatus && (
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 12,
+                        marginBottom: 12,
+                        padding: "9px 10px",
+                        borderRadius: 8,
+                        background: statusMeta.background,
+                        border: `1px solid ${statusMeta.border}`,
+                      }}
+                    >
+                      <div>
+                        <div
+                          style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: statusMeta.color,
+                          }}
+                        >
+                          Scan{" "}
+                          {Math.max(
+                            1,
+                            scans.findIndex(
+                              (scan) => scan.id === selectedScan.id,
+                            ) + 1,
+                          )}
+                        </div>
+
+                        <div
+                          style={{
+                            marginTop: 2,
+                            fontSize: 10,
+                            opacity: 0.55,
+                          }}
+                        >
+                          Recognition status
+                        </div>
+                      </div>
+
+                      <span
+                        style={{
+                          padding: "4px 7px",
+                          borderRadius: 999,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          color: statusMeta.color,
+                          background: "rgba(0,0,0,.16)",
+                        }}
+                      >
+                        {statusMeta.label}
+                      </span>
+                    </div>
+                  )}
+
                   <div
                     style={{
                       display: "flex",
                       gap: 8,
-                      marginTop: 12,
                       marginBottom: 12,
                     }}
                   >
@@ -730,6 +980,505 @@ function CollectionCardDialog({
                         No {scanSide} image was saved for this
                         scan.
                       </span>
+                    </div>
+                  )}
+
+                  {selectedScan && (
+                    <div
+                      style={{
+                        marginTop: 16,
+                        paddingTop: 16,
+                        borderTop: "1px solid rgba(255,255,255,.08)",
+                      }}
+                    >
+                      {!isCorrecting && !isChangingVersion ? (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexWrap: "wrap",
+                            gap: 8,
+                          }}
+                        >
+                          {versionMatches.length > 0 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setIsChangingVersion(true);
+                                setVersionCardId(null);
+                              }}
+                            >
+                              Change version
+                            </Button>
+                          )}
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              setIsCorrecting(true);
+                              setCorrectionQuery("");
+                              setCorrectionCardId(card.id);
+                            }}
+                          >
+                            Correct card
+                          </Button>
+                        </div>
+                      ) : isChangingVersion ? (
+                        <div
+                          style={{
+                            padding: 14,
+                            borderRadius: 12,
+                            border: "1px solid rgba(185,243,107,.25)",
+                            background: "rgba(185,243,107,.035)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 12,
+                              marginBottom: 10,
+                            }}
+                          >
+                            <div>
+                              <strong
+                                style={{
+                                  display: "block",
+                                  fontSize: 13,
+                                }}
+                              >
+                                Change card version
+                              </strong>
+
+                              <span
+                                style={{
+                                  display: "block",
+                                  marginTop: 3,
+                                  fontSize: 11,
+                                  opacity: 0.55,
+                                }}
+                              >
+                                Choose another printing of {card.name}.
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsChangingVersion(false);
+                                setVersionCardId(null);
+                              }}
+                              style={{
+                                border: 0,
+                                background: "transparent",
+                                color: "#94a3b8",
+                                cursor: "pointer",
+                                font: "inherit",
+                                fontSize: 12,
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 6,
+                              maxHeight: 220,
+                              overflowY: "auto",
+                            }}
+                          >
+                            {versionMatches.map((candidate) => {
+                              const selected = candidate.id === versionCardId;
+
+                              return (
+                                <button
+                                  key={candidate.id}
+                                  type="button"
+                                  onClick={() => setVersionCardId(candidate.id)}
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 12,
+                                    width: "100%",
+                                    padding: 8,
+                                    borderRadius: 8,
+                                    border: selected
+                                      ? "1px solid rgba(185,243,107,.5)"
+                                      : "1px solid rgba(255,255,255,.08)",
+                                    background: selected
+                                      ? "rgba(185,243,107,.08)"
+                                      : "rgba(255,255,255,.025)",
+                                    color: "#dbe5df",
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                    font: "inherit",
+                                  }}
+                                >
+                                  <span
+                                    style={{
+                                      display: "flex",
+                                      alignItems: "center",
+                                      gap: 10,
+                                      minWidth: 0,
+                                    }}
+                                  >
+                                    <img
+                                      src={
+                                        candidate.printingId
+                                          ? `/api/card-art/${candidate.printingId}`
+                                          : candidate.imageUrl
+                                      }
+                                      alt={`${candidate.name} ${candidate.edition === "beta"
+                                          ? "Beta"
+                                          : "Retail"
+                                        }`}
+                                      style={{
+                                        width: 48,
+                                        height: 66,
+                                        objectFit: "cover",
+                                        borderRadius: 5,
+                                        display: "block",
+                                        flexShrink: 0,
+                                        background: "rgba(255,255,255,.05)",
+                                      }}
+                                    />
+
+                                    <span style={{ minWidth: 0 }}>
+                                      <strong
+                                        style={{
+                                          display: "block",
+                                          fontSize: 12,
+                                        }}
+                                      >
+                                        {candidate.name}
+                                      </strong>
+
+                                      <small
+                                        style={{
+                                          display: "block",
+                                          marginTop: 3,
+                                          opacity: 0.7,
+                                          fontSize: 10,
+                                        }}
+                                      >
+                                        {candidate.edition === "beta"
+                                          ? "Beta"
+                                          : "Retail"}
+                                        {candidate.collectorNumber
+                                          ? ` · ${candidate.collectorNumber}`
+                                          : ` · #${candidate.id}`}
+                                        {" · "}
+                                        {candidate.setName}
+                                      </small>
+                                    </span>
+                                  </span>
+
+                                  {selected && (
+                                    <span
+                                      style={{
+                                        fontSize: 10,
+                                        fontWeight: 700,
+                                        color: "#b9f36b",
+                                        flexShrink: 0,
+                                      }}
+                                    >
+                                      Selected
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                              gap: 8,
+                              marginTop: 12,
+                            }}
+                          >
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setIsChangingVersion(false);
+                                setVersionCardId(null);
+                              }}
+                            >
+                              Cancel
+                            </Button>
+
+                            <Button
+                              size="sm"
+                              disabled={
+                                versionCardId === null ||
+                                versionCardId === card.id ||
+                                correctScan.isPending
+                              }
+                              onClick={() => {
+                                if (!selectedScan || versionCardId === null) {
+                                  return;
+                                }
+
+                                correctScan.mutate({
+                                  scanId: selectedScan.id,
+                                  cardId: versionCardId,
+                                });
+                              }}
+                            >
+                              {correctScan.isPending ? "Changing..." : "Change version"}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div
+                          style={{
+                            padding: 14,
+                            borderRadius: 12,
+                            border: "1px solid rgba(185,243,107,.25)",
+                            background: "rgba(185,243,107,.035)",
+                          }}
+                        >
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 12,
+                              marginBottom: 10,
+                            }}
+                          >
+                            <div>
+                              <strong
+                                style={{
+                                  display: "block",
+                                  fontSize: 13,
+                                }}
+                              >
+                                Correct scanned card
+                              </strong>
+                              <span
+                                style={{
+                                  display: "block",
+                                  marginTop: 3,
+                                  fontSize: 11,
+                                  opacity: 0.55,
+                                }}
+                              >
+                                Choose the catalog card this scan belongs to.
+                              </span>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setIsCorrecting(false);
+                                setCorrectionQuery("");
+                                setCorrectionCardId(null);
+                              }}
+                              style={{
+                                border: 0,
+                                background: "transparent",
+                                color: "#94a3b8",
+                                cursor: "pointer",
+                                font: "inherit",
+                                fontSize: 12,
+                              }}
+                            >
+                              Cancel
+                            </button>
+                          </div>
+
+                          <input
+                            value={correctionQuery}
+                            onChange={(event) =>
+                              setCorrectionQuery(event.target.value)
+                            }
+                            placeholder="Search by card name or ID..."
+                            autoFocus
+                            style={{
+                              width: "100%",
+                              boxSizing: "border-box",
+                              padding: "10px 11px",
+                              borderRadius: 8,
+                              border: "1px solid rgba(255,255,255,.12)",
+                              background: "rgba(0,0,0,.22)",
+                              color: "#e5e7eb",
+                              outline: "none",
+                              font: "inherit",
+                              fontSize: 12,
+                            }}
+                          />
+
+                          <div
+                            style={{
+                              display: "grid",
+                              gap: 6,
+                              marginTop: 10,
+                              maxHeight: 220,
+                              overflowY: "auto",
+                            }}
+                          >
+                            {correctionMatches.map((candidate) => {
+                              const selected =
+                                candidate.id === correctionCardId;
+
+                              return (
+                                <button
+                                  key={candidate.id}
+                                  type="button"
+                                  onClick={() =>
+                                    setCorrectionCardId(candidate.id)
+                                  }
+                                  style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "space-between",
+                                    gap: 10,
+                                    width: "100%",
+                                    padding: "9px 10px",
+                                    borderRadius: 8,
+                                    border: selected
+                                      ? "1px solid rgba(185,243,107,.5)"
+                                      : "1px solid rgba(255,255,255,.08)",
+                                    background: selected
+                                      ? "rgba(185,243,107,.08)"
+                                      : "rgba(255,255,255,.025)",
+                                    color: "#dbe5df",
+                                    cursor: "pointer",
+                                    textAlign: "left",
+                                    font: "inherit",
+                                  }}
+                                >
+                                  <span>
+                                    <strong
+                                      style={{
+                                        display: "block",
+                                        fontSize: 12,
+                                      }}
+                                    >
+                                      {candidate.name}
+                                    </strong>
+                                    <small
+                                      style={{
+                                        display: "block",
+                                        marginTop: 2,
+                                        opacity: 0.7,
+                                        fontSize: 10,
+                                      }}
+                                    >
+                                      {candidate.edition === "beta"
+                                        ? "Beta"
+                                        : "Retail"}
+                                      {candidate.collectorNumber
+                                        ? ` · ${candidate.collectorNumber}`
+                                        : ` · #${candidate.id}`}
+                                      {" · "}
+                                      {candidate.setName}
+                                    </small>
+                                  </span>
+
+                                  {selected && (
+                                    <Check
+                                      size={16}
+                                      style={{ flexShrink: 0 }}
+                                    />
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {correctionMatches.length === 0 && (
+                            <div
+                              style={{
+                                marginTop: 10,
+                                fontSize: 11,
+                                opacity: 0.55,
+                              }}
+                            >
+                              No matching cards found.
+                            </div>
+                          )}
+
+                          {correctionCard && (
+                            <div
+                              style={{
+                                marginTop: 10,
+                                fontSize: 11,
+                                opacity: 0.65,
+                              }}
+                            >
+                              Selected:{" "}
+                              <strong style={{ opacity: 1 }}>
+                                {correctionCard.name}
+                              </strong>
+                              {" · "}
+                              {correctionCard.edition === "beta"
+                                ? "Beta"
+                                : "Retail"}
+                              {correctionCard.collectorNumber
+                                ? ` · ${correctionCard.collectorNumber}`
+                                : ""}
+                            </div>
+                          )}
+
+                          <div
+                            style={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                              gap: 8,
+                              marginTop: 12,
+                            }}
+                          >
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setIsCorrecting(false);
+                                setCorrectionQuery("");
+                                setCorrectionCardId(null);
+                              }}
+                              disabled={correctScan.isPending}
+                            >
+                              Cancel
+                            </Button>
+
+                            <Button
+                              variant="default"
+                              size="sm"
+                              disabled={
+                                !selectedScan ||
+                                correctionCardId === null ||
+                                correctScan.isPending
+                              }
+                              onClick={() => {
+                                if (
+                                  !selectedScan ||
+                                  correctionCardId === null
+                                ) {
+                                  return;
+                                }
+
+                                correctScan.mutate({
+                                  scanId: selectedScan.id,
+                                  cardId: correctionCardId,
+                                });
+                              }}
+                            >
+                              {correctScan.isPending
+                                ? "Saving..."
+                                : "Confirm correction"}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -1362,6 +2111,7 @@ function CollectionView({
 
       <CollectionCardDialog
         card={selectedCollectionCard}
+        cards={cards}
         scans={selectedCollectionScans}
         quantity={
           selectedCollectionCard

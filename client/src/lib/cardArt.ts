@@ -31,5 +31,9 @@ async function loadCardArtIndex() {
 void loadCardArtIndex();
 
 export function getCardArtUrl(card: CatalogCard) {
+  if (card.printingId) {
+    return `/api/card-art/${card.printingId}`;
+  }
+
   return cardArt.get(card.id) ?? card.imageUrl;
 }

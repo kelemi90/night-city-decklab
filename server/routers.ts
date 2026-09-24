@@ -33,6 +33,7 @@ import {
   listDecks,
   listLatestPrices,
   listScans,
+  updateScanCard,
   revokeDeckShare,
   saveDeckCards,
   upsertCollectionItem,
@@ -438,6 +439,30 @@ export const appRouter = router({
     list: protectedProcedure.query(({ ctx }) =>
       listScans(ctx.user.id),
     ),
+
+    correct: protectedProcedure
+      .input(
+        z.object({
+          scanId: z.number().int().positive(),
+          cardId,
+        }),
+      )
+      .mutation(async ({ ctx, input }) => {
+        const scan = await updateScanCard(
+          ctx.user.id,
+          input.scanId,
+          input.cardId,
+        );
+
+        await addActivity(
+          ctx.user.id,
+          "collection",
+          "Card scan corrected",
+          `Scan #${input.scanId} reassigned to catalog card #${input.cardId}.`,
+        );
+
+        return scan;
+      }),
 
     create: protectedProcedure
       .input(

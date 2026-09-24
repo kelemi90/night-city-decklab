@@ -2,6 +2,9 @@ import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { drizzle } from "drizzle-orm/mysql2";
 import { CATALOG_CARDS, PRICE_CURRENCY } from "../shared/deckRules";
+import { BETA_CARDS } from "../shared/betaCatalog";
+
+const FULL_CATALOG = [...CATALOG_CARDS, ...BETA_CARDS];
 import { ActivityEvent, CardScan, InsertUser, activityEvents, cards, cardScans, collectionItems, deckCards, deckShares, decks, priceSnapshots, users } from "../drizzle/schema";
 import { ENV } from "./_core/env";
 
@@ -105,7 +108,7 @@ export async function createLocalUser(user: {
 export async function ensureCatalog() {
   const db = await getDb();
   if (!db) return;
-  for (const card of CATALOG_CARDS) {
+  for (const card of FULL_CATALOG) {
     await db.insert(cards).values({
       id: card.id,
       name: card.name,
@@ -135,11 +138,11 @@ export async function ensureCatalog() {
 
 export async function listCards() {
   const db = await getDb();
-  if (!db) return CATALOG_CARDS;
+  if (!db) return FULL_CATALOG;
   await ensureCatalog();
   const rows = await db.select().from(cards).orderBy(cards.id);
   return rows.map((row) => {
-    const catalog = CATALOG_CARDS.find((card) => card.id === row.id);
+    const catalog = FULL_CATALOG.find((card) => card.id === row.id);
     return { ...row, ...(catalog ?? {}), marketCents: catalog?.marketCents ?? 0 };
   });
 }
@@ -175,6 +178,118 @@ export async function listScans(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(cardScans).where(eq(cardScans.userId, userId)).orderBy(desc(cardScans.createdAt));
+}
+
+export async function updateScanCard(
+  userId: number,
+  scanId: number,
+  newCardId: number,
+) {
+  const db = await getDb();
+  if (!db) throw new Error("Database is not configured");
+
+  await ensureCatalog();
+
+  const catalogCard = await db
+    .select()
+    .from(cards)
+    .where(eq(cards.id, newCardId))
+    .limit(1);
+
+  if (!catalogCard[0]) {
+    throw new Error("Target card was not found in the catalog");
+  }
+
+  return db.transaction(async (tx) => {
+    const existingScan = await tx
+      .select()
+      .from(cardScans)
+      .where(
+        and(
+          eq(cardScans.id, scanId),
+          eq(cardScans.userId, userId),
+        ),
+      )
+      .limit(1);
+
+    if (!existingScan[0]) {
+      throw new Error("Scan not found");
+    }
+
+    const oldCardId = existingScan[0].cardId;
+
+    if (oldCardId !== newCardId) {
+      if (oldCardId !== null) {
+        const oldCollection = await tx
+          .select()
+          .from(collectionItems)
+          .where(
+            and(
+              eq(collectionItems.userId, userId),
+              eq(collectionItems.cardId, oldCardId),
+            ),
+          )
+          .limit(1);
+
+        if (oldCollection[0]) {
+          await tx
+            .update(collectionItems)
+            .set({
+              quantity: Math.max(0, oldCollection[0].quantity - 1),
+              updatedAt: new Date(),
+            })
+            .where(eq(collectionItems.id, oldCollection[0].id));
+        }
+      }
+
+      const newCollection = await tx
+        .select()
+        .from(collectionItems)
+        .where(
+          and(
+            eq(collectionItems.userId, userId),
+            eq(collectionItems.cardId, newCardId),
+          ),
+        )
+        .limit(1);
+
+      if (newCollection[0]) {
+        await tx
+          .update(collectionItems)
+          .set({
+            quantity: newCollection[0].quantity + 1,
+            updatedAt: new Date(),
+          })
+          .where(eq(collectionItems.id, newCollection[0].id));
+      } else {
+        await tx.insert(collectionItems).values({
+          userId,
+          cardId: newCardId,
+          quantity: 1,
+          condition: "NM",
+        });
+      }
+    }
+
+    await tx
+      .update(cardScans)
+      .set({
+        cardId: newCardId,
+        recognitionStatus: "matched",
+      })
+      .where(
+        and(
+          eq(cardScans.id, scanId),
+          eq(cardScans.userId, userId),
+        ),
+      );
+
+    return {
+      ...existingScan[0],
+      cardId: newCardId,
+      recognitionStatus: "matched" as const,
+    };
+  });
 }
 
 export async function addPriceSnapshot(cardId: number, price: { source: string; currency: string; marketCents: number; lowCents?: number; highCents?: number }) {
