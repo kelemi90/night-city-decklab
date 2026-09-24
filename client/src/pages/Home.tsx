@@ -1048,7 +1048,7 @@ function CollectionCardDialog({
                               marginBottom: 10,
                             }}
                           >
-                            <div>
+                            <div style={{ minWidth: 0 }}>
                               <strong
                                 style={{
                                   display: "block",
@@ -1087,6 +1087,65 @@ function CollectionCardDialog({
                             >
                               Cancel
                             </button>
+                          </div>
+
+                          <div
+                            style={{
+                              marginBottom: 10,
+                              padding: "9px 10px",
+                              borderRadius: 8,
+                              border: "1px solid rgba(255,255,255,.08)",
+                              background: "rgba(255,255,255,.025)",
+                            }}
+                          >
+                            <span
+                              style={{
+                                display: "block",
+                                marginBottom: 4,
+                                fontSize: 9,
+                                textTransform: "uppercase",
+                                letterSpacing: ".08em",
+                                opacity: 0.45,
+                              }}
+                            >
+                              Current version
+                            </span>
+
+                            <strong
+                              style={{
+                                display: "block",
+                                fontSize: 11,
+                                color: "#dbe5df",
+                              }}
+                            >
+                              {card.edition === "beta" ? "Beta" : "Retail"}
+                              {card.collectorNumber
+                                ? ` · ${card.collectorNumber}`
+                                : ` · #${card.id}`}
+                            </strong>
+
+                            <span
+                              style={{
+                                display: "block",
+                                marginTop: 3,
+                                fontSize: 10,
+                                opacity: 0.55,
+                              }}
+                            >
+                              {card.setName}
+                            </span>
+                          </div>
+
+                          <div
+                            style={{
+                              marginBottom: 6,
+                              fontSize: 9,
+                              textTransform: "uppercase",
+                              letterSpacing: ".08em",
+                              opacity: 0.45,
+                            }}
+                          >
+                            Choose another printing
                           </div>
 
                           <div
