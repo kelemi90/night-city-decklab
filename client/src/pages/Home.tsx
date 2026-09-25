@@ -3223,7 +3223,8 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
 
                 <div className="advisor-meta">
                   <span>
-                    Simulation:{" "}
+                    Round robin: {result.simulation.overall.wins}-
+                    {result.simulation.overall.losses} ·{" "}
                     {Math.round(result.simulation.overall.winRate * 100)}% win
                     rate
                   </span>
