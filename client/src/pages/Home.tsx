@@ -3295,9 +3295,12 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                                 <small>{matchup.opponent.strategy}</small>
                               </div>
 
-                              <b>
-                                {Math.round(overall.winRate * 100)}%
-                              </b>
+                              <div className="advisor-matchup-result">
+                                <strong>
+                                  {overall.wins}-{overall.losses}
+                                </strong>
+                                <b>{Math.round(overall.winRate * 100)}%</b>
+                              </div>
                             </div>
 
                             <div className="advisor-matchup-meta">

@@ -3558,8 +3558,21 @@ body {
   letter-spacing: 0.06em;
 }
 
-.advisor-matchup-head > b {
+.advisor-matchup-result {
+  display: grid;
+  justify-items: end;
+  gap: 2px;
   flex: 0 0 auto;
+}
+
+.advisor-matchup-result strong {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.62rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.advisor-matchup-result b {
   color: #b9f36b;
   font-size: 1rem;
   font-variant-numeric: tabular-nums;
