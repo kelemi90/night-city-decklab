@@ -40,7 +40,11 @@ import {
 } from "./db";
 
 import { storagePut } from "./storage";
-import { PRICE_CURRENCY, type CatalogCard } from "../shared/deckRules";
+import {
+  FULL_CATALOG,
+  PRICE_CURRENCY,
+  type CatalogCard,
+} from "../shared/deckRules";
 import {
   CardmarketConfigurationError,
   fetchCardmarketDailyPrices,
@@ -56,6 +60,10 @@ import {
   recommendDeck,
   recommendDecks,
 } from "./deckAdvisor";
+import {
+  optimizeDeckCandidates,
+  type OptimizeDeckOptions,
+} from "./simulator/optimizer";
 import { getAiProviderStatus } from "./_core/llm";
 
 const cardId = z.number().int().positive();
@@ -675,20 +683,34 @@ export const appRouter = router({
       .mutation(async ({ ctx, input }) => {
         const collection = await getCollection(ctx.user.id);
 
-        const results = await recommendDecks(
+        const recommendations = await recommendDecks(
           ownedCatalogRows(collection),
           Array.from(new Set(input.goals)),
           input.weights,
+        );
+
+        const simulationOptions: OptimizeDeckOptions = {
+          gamesPerSide: 5,
+          maxTurns: 200,
+        };
+
+        const optimized = await optimizeDeckCandidates(
+          recommendations,
+          FULL_CATALOG,
+          simulationOptions,
         );
 
         await addActivity(
           ctx.user.id,
           "recommendation",
           "AI deck comparison created",
-          `${results.length} strategy builds generated.`,
+          `${recommendations.length} strategy builds generated and simulated.`,
         );
 
-        return results;
+        return optimized.candidates.map((candidate) => ({
+          ...candidate.recommendation,
+          simulation: candidate.evaluation,
+        }));
       }),
   }),
 });

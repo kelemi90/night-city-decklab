@@ -17,6 +17,11 @@ import {
   sellCard,
 } from "./actions";
 
+import {
+  declareGigAttack,
+  declareUnitAttack,
+} from "./combat";
+
 import type { SimulatorCard } from "./types";
 
 function unit(
@@ -2115,6 +2120,7 @@ describe("Cyberpunk TCG baseline simulation", () => {
         legend(301),
         legend(302),
       ],
+      firstPlayer: 1,
       random: () => 0.5,
       maxTurns: 100,
     });
@@ -2130,6 +2136,205 @@ describe("Cyberpunk TCG baseline simulation", () => {
     expect(result.stats.gigSteals[0]).toBeGreaterThan(0);
     expect(result.stats.cardsPlayed[0]).toBeGreaterThan(0);
     expect(result.stats.cardsPlayed[1]).toBeGreaterThan(0);
+
+    const turnStartEvents = result.events.filter(
+      (event) => event.type === "turn-start",
+    );
+
+    const cardPlayedEvents = result.events.filter(
+      (event) => event.type === "card-played",
+    );
+
+    const attackEvents = result.events.filter(
+      (event) => event.type === "attack",
+    );
+
+    const gameOverEvents = result.events.filter(
+      (event) => event.type === "game-over",
+    );
+
+    expect(turnStartEvents.length).toBeGreaterThan(0);
+    expect(cardPlayedEvents.length).toBeGreaterThan(0);
+    expect(attackEvents.length).toBeGreaterThan(0);
+
+    expect(gameOverEvents).toHaveLength(1);
+
+    expect(gameOverEvents[0]).toMatchObject({
+      type: "game-over",
+      winner: 0,
+      reason: "seven-gigs",
+      finalGigs: result.finalGigs,
+    });
+  });
+});
+
+it("loses immediately when required to draw from an empty deck", async () => {
+  const { startTurn } = await import("./turn");
+
+  const game = setupGame(
+    deck(1),
+    legends(100),
+    deck(200),
+    legends(300),
+    0,
+    () => 0.5,
+  );
+
+  /*
+   * The opening hand removes six cards from the deck,
+   * leaving 34 cards. Empty Player 0's deck manually
+   * so the next required Start Phase draw triggers
+   * the decking-out rule.
+   */
+  game.players[0].deck = [];
+
+  startTurn(game, "d4", () => 0.5);
+
+  expect(game.phase).toBe("game-over");
+  expect(game.winner).toBe(1);
+});
+
+describe("Cyberpunk TCG simulation combat policy", () => {
+  it("uses Unit-vs-Unit combat against spent rival Units", async () => {
+    const { simulateGame } = await import("./simulation");
+
+    const unit = (
+      id: number,
+      power: number,
+    ): SimulatorCard => ({
+      id,
+      name: `Unit ${id}`,
+      kind: "unit",
+      color: "red",
+      cost: 0,
+      power,
+      ram: 1,
+    });
+
+    const legend = (id: number): SimulatorCard => ({
+      id,
+      name: `Legend ${id}`,
+      kind: "legend",
+      color: "red",
+      ram: 1,
+    });
+
+    const result = simulateGame({
+      player0Cards: Array.from(
+        { length: 50 },
+        (_, i) => unit(i + 1, 10),
+      ),
+      player0Legends: [
+        legend(100),
+        legend(101),
+        legend(102),
+      ],
+      player1Cards: Array.from(
+        { length: 50 },
+        (_, i) => unit(i + 201, 1),
+      ),
+      player1Legends: [
+        legend(300),
+        legend(301),
+        legend(302),
+      ],
+      random: () => 0.5,
+      maxTurns: 100,
+    });
+
+    expect(result.gameOver).toBe(true);
+    expect(result.winner).toBe(0);
+
+    expect(result.stats.attacks[0]).toBeGreaterThan(0);
+    expect(result.stats.unitsDefeated[0]).toBeGreaterThan(0);
+    expect(result.stats.unitsDefeated[1]).toBe(0);
+  });
+});
+
+describe("Cyberpunk TCG simulation event log", () => {
+  it("records card plays, attacks, Gig steals, and the final win", async () => {
+    const { simulateGame } = await import("./simulation");
+
+    const unit = (
+      id: number,
+      power: number,
+    ): SimulatorCard => ({
+      id,
+      name: `Unit ${id}`,
+      kind: "unit",
+      color: "red",
+      cost: 0,
+      power,
+      ram: 1,
+    });
+
+    const legend = (id: number): SimulatorCard => ({
+      id,
+      name: `Legend ${id}`,
+      kind: "legend",
+      color: "red",
+      ram: 1,
+    });
+
+    const result = simulateGame({
+      player0Cards: Array.from(
+        { length: 50 },
+        (_, i) => unit(i + 1, 10),
+      ),
+      player0Legends: [
+        legend(100),
+        legend(101),
+        legend(102),
+      ],
+      player1Cards: Array.from(
+        { length: 50 },
+        (_, i) => unit(i + 201, 0),
+      ),
+      player1Legends: [
+        legend(300),
+        legend(301),
+        legend(302),
+      ],
+      firstPlayer: 1,
+      random: () => 0.5,
+      maxTurns: 100,
+    });
+
+    const cardPlayedEvents = result.events.filter(
+      (event) => event.type === "card-played",
+    );
+
+    const attackEvents = result.events.filter(
+      (event) => event.type === "attack",
+    );
+
+    const gigStealEvents = result.events.filter(
+      (event) => event.type === "gig-steal",
+    );
+
+    const gameOverEvents = result.events.filter(
+      (event) => event.type === "game-over",
+    );
+
+    expect(cardPlayedEvents.length).toBeGreaterThan(0);
+    expect(attackEvents.length).toBeGreaterThan(0);
+    expect(gigStealEvents.length).toBeGreaterThan(0);
+
+    expect(gameOverEvents).toHaveLength(1);
+
+    expect(gameOverEvents[0]).toMatchObject({
+      type: "game-over",
+      winner: 0,
+      reason: "seven-gigs",
+    });
+
+    const stealTotal = gigStealEvents.reduce(
+      (total, event) =>
+        total + (event.type === "gig-steal" ? event.amount : 0),
+      0,
+    );
+
+    expect(stealTotal).toBe(result.stats.gigSteals[0]);
   });
 });
 
@@ -2203,5 +2408,289 @@ describe("Cyberpunk TCG batch simulation", () => {
     expect(first.averageTurns).toBeGreaterThan(0);
     expect(first.totalAttacks[0]).toBeGreaterThan(0);
     expect(first.totalGigSteals[0]).toBeGreaterThan(0);
+  });
+});
+
+function createTestDeck(card: SimulatorCard): SimulatorCard[] {
+  return Array.from({ length: 40 }, (_, index) => ({
+    ...card,
+    id: card.id + index,
+    name: `${card.name} ${index + 1}`,
+  }));
+}
+
+describe("Adrenaline", () => {
+  function createAdrenalineUnit() {
+    return {
+      id: 9001,
+      name: "Test Adrenaline Unit",
+      kind: "unit" as const,
+      color: "red",
+      cost: 0,
+      power: 5,
+      ram: 1,
+      adrenaline: true,
+    };
+  }
+
+  function createNormalUnit() {
+    return {
+      id: 9002,
+      name: "Test Normal Unit",
+      kind: "unit" as const,
+      color: "red",
+      cost: 0,
+      power: 5,
+      ram: 1,
+      adrenaline: false,
+    };
+  }
+
+  function createOpponentUnit() {
+    return {
+      id: 9003,
+      name: "Test Opponent Unit",
+      kind: "unit" as const,
+      color: "blue",
+      cost: 0,
+      power: 3,
+      ram: 1,
+    };
+  }
+
+  it("allows an Adrenaline Unit to attack while it has Lag", () => {
+    const game = setupGame(
+      createTestDeck(createAdrenalineUnit()),
+      [
+        {
+          id: 9101,
+          name: "Legend A",
+          kind: "legend",
+          color: "red",
+          ram: 1,
+        },
+        {
+          id: 9102,
+          name: "Legend B",
+          kind: "legend",
+          color: "blue",
+          ram: 1,
+        },
+        {
+          id: 9103,
+          name: "Legend C",
+          kind: "legend",
+          color: "green",
+          ram: 1,
+        },
+      ],
+      createTestDeck(createOpponentUnit()),
+      [
+        {
+          id: 9201,
+          name: "Legend D",
+          kind: "legend",
+          color: "red",
+          ram: 1,
+        },
+        {
+          id: 9202,
+          name: "Legend E",
+          kind: "legend",
+          color: "blue",
+          ram: 1,
+        },
+        {
+          id: 9203,
+          name: "Legend F",
+          kind: "legend",
+          color: "green",
+          ram: 1,
+        },
+      ],
+    );
+
+    const player = game.players[0];
+
+    player.field.push({
+      card: createAdrenalineUnit(),
+      instanceId: "adrenaline-1",
+      spent: false,
+      lag: true,
+      faceUp: true,
+    });
+
+    game.phase = "main";
+
+    const pending = declareGigAttack(
+      game,
+      0,
+      "adrenaline-1",
+    );
+
+    expect(pending.type).toBe("gigs");
+    expect(player.field[0].lag).toBe(true);
+    expect(player.field[0].spent).toBe(true);
+  });
+
+  it("does not allow a normal Unit to attack while it has Lag", () => {
+    const game = setupGame(
+      createTestDeck(createNormalUnit()),
+      [
+        {
+          id: 9301,
+          name: "Legend G",
+          kind: "legend",
+          color: "red",
+          ram: 1,
+        },
+        {
+          id: 9302,
+          name: "Legend H",
+          kind: "legend",
+          color: "blue",
+          ram: 1,
+        },
+        {
+          id: 9303,
+          name: "Legend I",
+          kind: "legend",
+          color: "green",
+          ram: 1,
+        },
+      ],
+      createTestDeck(createOpponentUnit()),
+      [
+        {
+          id: 9401,
+          name: "Legend J",
+          kind: "legend",
+          color: "red",
+          ram: 1,
+        },
+        {
+          id: 9402,
+          name: "Legend K",
+          kind: "legend",
+          color: "blue",
+          ram: 1,
+        },
+        {
+          id: 9403,
+          name: "Legend L",
+          kind: "legend",
+          color: "green",
+          ram: 1,
+        },
+      ],
+    );
+
+    const player = game.players[0];
+
+    player.field.push({
+      card: createNormalUnit(),
+      instanceId: "normal-1",
+      spent: false,
+      lag: true,
+      faceUp: true,
+    });
+
+    game.phase = "main";
+
+    expect(() =>
+      declareGigAttack(
+        game,
+        0,
+        "normal-1",
+      ),
+    ).toThrow("has Lag and cannot attack");
+
+    expect(player.field[0].lag).toBe(true);
+    expect(player.field[0].spent).toBe(false);
+  });
+
+  it("allows an Adrenaline Unit to attack a spent rival Unit while it has Lag", () => {
+    const game = setupGame(
+      createTestDeck(createAdrenalineUnit()),
+      [
+        {
+          id: 9501,
+          name: "Legend M",
+          kind: "legend",
+          color: "red",
+          ram: 1,
+        },
+        {
+          id: 9502,
+          name: "Legend N",
+          kind: "legend",
+          color: "blue",
+          ram: 1,
+        },
+        {
+          id: 9503,
+          name: "Legend O",
+          kind: "legend",
+          color: "green",
+          ram: 1,
+        },
+      ],
+      createTestDeck(createOpponentUnit()),
+      [
+        {
+          id: 9601,
+          name: "Legend P",
+          kind: "legend",
+          color: "red",
+          ram: 1,
+        },
+        {
+          id: 9602,
+          name: "Legend Q",
+          kind: "legend",
+          color: "blue",
+          ram: 1,
+        },
+        {
+          id: 9603,
+          name: "Legend R",
+          kind: "legend",
+          color: "green",
+          ram: 1,
+        },
+      ],
+    );
+
+    const player = game.players[0];
+    const rival = game.players[1];
+
+    player.field.push({
+      card: createAdrenalineUnit(),
+      instanceId: "adrenaline-2",
+      spent: false,
+      lag: true,
+      faceUp: true,
+    });
+
+    rival.field.push({
+      card: createOpponentUnit(),
+      instanceId: "opponent-1",
+      spent: true,
+      lag: false,
+      faceUp: true,
+    });
+
+    game.phase = "main";
+
+    const pending = declareUnitAttack(
+      game,
+      0,
+      "adrenaline-2",
+      "opponent-1",
+    );
+
+    expect(pending.type).toBe("unit");
+    expect(player.field[0].lag).toBe(true);
+    expect(player.field[0].spent).toBe(true);
   });
 });

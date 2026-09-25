@@ -54,7 +54,7 @@ export function declareUnitAttack(
     attackerInstanceId,
   );
 
-  if (attacker.lag) {
+  if (attacker.lag && !attacker.card.adrenaline) {
     throw new Error(
       `Unit ${attacker.instanceId} has Lag and cannot attack.`,
     );
@@ -107,7 +107,7 @@ export function declareGigAttack(
     attackerInstanceId,
   );
 
-  if (attacker.lag) {
+  if (attacker.lag && !attacker.card.adrenaline) {
     throw new Error(
       `Unit ${attacker.instanceId} has Lag and cannot attack.`,
     );
@@ -444,7 +444,7 @@ export function attackUnit(
     attackerInstanceId,
   );
 
-  if (attacker.lag) {
+  if (attacker.lag && !attacker.card.adrenaline) {
     throw new Error(
       `Unit ${attacker.instanceId} has Lag and cannot attack.`,
     );
@@ -502,7 +502,7 @@ export function attackGigs(
     attackerInstanceId,
   );
 
-  if (attacker.lag) {
+  if (attacker.lag && !attacker.card.adrenaline) {
     throw new Error(
       `Unit ${attacker.instanceId} has Lag and cannot attack.`,
     );

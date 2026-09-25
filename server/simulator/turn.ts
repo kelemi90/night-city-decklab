@@ -37,6 +37,15 @@ export function drawForTurn(
 ) {
   const player = game.players[playerId];
 
+  if (player.deck.length === 0) {
+    const rivalId: PlayerId = playerId === 0 ? 1 : 0;
+
+    game.winner = rivalId;
+    game.phase = "game-over";
+
+    return;
+  }
+
   drawCards(player, 1);
 }
 
@@ -113,7 +122,13 @@ export function startTurn(
    */
   readyPlayer(player);
 
+  readyPlayer(player);
+
   drawForTurn(game, playerId);
+
+  if (game.winner !== undefined) {
+    return;
+  }
 
   gainStartGig(game, playerId, die, random);
 
