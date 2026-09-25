@@ -245,6 +245,39 @@ describe("Cyberpunk TCG deck optimizer", () => {
     expect(result.winner).toBe(
       result.candidates[0],
     );
+
+    for (let index = 1; index < result.candidates.length; index += 1) {
+      const previous = result.candidates[index - 1].evaluation;
+      const current = result.candidates[index].evaluation;
+
+      expect(
+        previous.overall.winRate,
+      ).toBeGreaterThanOrEqual(
+        current.overall.winRate,
+      );
+
+      if (
+        previous.overall.winRate ===
+        current.overall.winRate
+      ) {
+        expect(
+          previous.overall.unfinishedGames,
+        ).toBeLessThanOrEqual(
+          current.overall.unfinishedGames,
+        );
+
+        if (
+          previous.overall.unfinishedGames ===
+          current.overall.unfinishedGames
+        ) {
+          expect(
+            previous.averageTurns,
+          ).toBeLessThanOrEqual(
+            current.averageTurns,
+          );
+        }
+      }
+    }
   });
 
   it("does not simulate a candidate against itself", async () => {
