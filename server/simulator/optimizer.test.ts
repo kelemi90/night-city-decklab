@@ -203,6 +203,43 @@ describe("Cyberpunk TCG deck optimizer", () => {
       expect(
         candidate.evaluation.candidateSecond.games,
       ).toBe(10);
+
+      expect(candidate.matchups).toHaveLength(2);
+
+      const expectedOpponents = [
+        "Deck A",
+        "Deck B",
+        "Deck C",
+      ].filter(
+        (name) =>
+          name !== candidate.recommendation.name,
+      );
+
+      expect(
+        candidate.matchups.map(
+          (matchup) => matchup.opponent.name,
+        ),
+      ).toEqual(
+        expect.arrayContaining(expectedOpponents),
+      );
+
+      for (const matchup of candidate.matchups) {
+        expect(
+          matchup.opponent.name,
+        ).not.toBe(candidate.recommendation.name);
+
+        expect(
+          matchup.evaluation.overall.games,
+        ).toBe(10);
+
+        expect(
+          matchup.evaluation.candidateFirst.games,
+        ).toBe(5);
+
+        expect(
+          matchup.evaluation.candidateSecond.games,
+        ).toBe(5);
+      }
     }
 
     expect(result.winner).toBe(

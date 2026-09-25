@@ -3008,7 +3008,343 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
     );
   }
 
-  return <section className="content-section"><div className="section-head"><div><span className="eyebrow">Deck lab / RAM-aware builder</span><h2>Assemble your crew</h2></div><div className="deck-export-actions"><Button variant="outline" size="sm" onClick={() => void copyDeckExport()}><Clipboard size={14} />Copy export</Button><Button variant="outline" size="sm" onClick={downloadDeckExport}><Download size={14} />Download .txt</Button></div><div className="deck-name"><input value={name} onChange={(event) => setName(event.target.value)} /><Button size="sm" onClick={() => { if (!isAuthenticated) { onAuthRequired(); return; } if (!validation.legal) { toast.error("Fix the deck legality warnings before saving."); return; } createDeck.mutate({ name }); }}><Database size={14} />Save deck</Button>{savedDeckId && <><label className="share-expiry"><span>Link expiry</span><input type="datetime-local" value={shareExpiry} onChange={(event) => setShareExpiry(event.target.value)} /></label><Button variant="outline" size="sm" onClick={() => shareDeck.mutate({ deckId: savedDeckId, expiresAt: shareExpiry ? new Date(shareExpiry) : null })} disabled={shareDeck.isPending}><Share2 size={14} />{shareToken ? "Update link" : "Share link"}</Button>{shareToken && <Button variant="outline" size="sm" onClick={() => revokeShare.mutate({ deckId: savedDeckId })} disabled={revokeShare.isPending}><X size={14} />Revoke</Button>}</>}</div></div><div className="advisor-card"><div className="advisor-copy"><span className="eyebrow lime">AI DECK ADVISOR / COMPARE BUILDS</span><h3>{advisorResults.length ? `${advisorResults.length} strategies ready to compare` : "Find the strongest deck in your binder"}</h3><p>Choose one or more goals. Each candidate uses only owned cards and is checked against the official RAM and deck-building rules.</p><div className="preset-library"><span className="preset-label">Saved presets</span><div className="preset-list">{WEIGHT_PRESETS.map((preset) => <button key={preset.id} type="button" className="preset-button" onClick={() => applyPreset(preset)}><b>{preset.label}</b><small>{preset.detail}</small></button>)}</div></div><div className="weight-controls">{(["speed", "control", "budget"] as const).map((key) => <label key={key}><span><b>{key}</b><output>{weights[key]}</output></span><input type="range" min="0" max="100" step="5" value={weights[key]} onChange={(event) => updateWeight(key, Number(event.target.value))} /></label>)}</div><div className="strategy-picker">{STRATEGY_GOALS.map((goal) => <button key={goal.id} type="button" className={`strategy-chip ${strategyGoals.includes(goal.id) ? "selected" : ""}`} onClick={() => setStrategyGoals((current) => current.includes(goal.id) ? current.filter((item) => item !== goal.id) : current.length < 3 ? [...current, goal.id] : current)}><b>{goal.label}</b><small>{goal.detail}</small></button>)}</div><div className="advisor-actions"><Button onClick={() => { if (!isAuthenticated) { onAuthRequired(); return; } if (!strategyGoals.length) { toast.error("Choose at least one strategy goal."); return; } advisor.mutate({ goals: strategyGoals, weights }); }} disabled={advisor.isPending}><Sparkles size={15} />{advisor.isPending ? "Comparing strategies…" : `Compare ${strategyGoals.length || "selected"} builds`}</Button></div></div>{advisorResults.length > 0 && <div className="advisor-comparison">{advisorResults.map((result) => <article className="advisor-result" key={result.strategy}><div className="advisor-result-head"><span className="eyebrow">{result.strategy}</span><strong>{result.name}</strong></div><p>{result.summary}</p><div className="advisor-meta"><span>{result.totalMain} main cards</span><span>{result.legends.length} Legends</span></div><div className="advisor-meta"><span>Simulation: {Math.round(result.simulation.overall.winRate * 100)}% win rate</span><span>{result.simulation.overall.games} games</span><span>{result.simulation.overall.unfinishedGames} unfinished</span><span>{result.simulation.averageTurns.toFixed(1)} avg turns</span></div><div className="advisor-reasons">{result.whyLegends.slice(0, 2).map((reason) => <span key={reason}>{reason}</span>)}</div><Button size="sm" variant="outline" onClick={() => applyRecommendation(result)}>Use this build <ChevronRight size={13} /></Button></article>)}</div>}{advisorResults.length > 1 && <div className="advisor-diff"><div className="advisor-diff-head"><div><span className="eyebrow">CARD-BY-CARD DIFF</span><h4>Where the builds diverge</h4></div><small>Shared cards stay dim; quantity changes glow.</small></div><div className="diff-table"><div className="diff-row diff-heading"><span>Card</span>{advisorResults.map((result) => <span key={result.strategy}>{result.strategy}</span>)}</div>{comparisonRows(advisorResults, cards).map((row) => <div className="diff-row" key={row.card.id}><span className="diff-card"><i style={{ background: COLOR_META[row.card.color]?.hex }} />{row.card.name}</span>{row.quantities.map((quantity, index) => <span className={`diff-cell ${quantity === 0 ? "empty" : index === 0 || quantity === row.quantities[0] ? "same" : "changed"}`} key={`${row.card.id}-${index}`}>{quantity || "—"}</span>)}</div>)}</div></div>}</div>
+  return (
+    <section className="content-section">
+      <div className="section-head">
+        <div>
+          <span className="eyebrow">Deck lab / RAM-aware builder</span>
+          <h2>Assemble your crew</h2>
+        </div>
+
+        <div className="deck-export-actions">
+          <Button variant="outline" size="sm" onClick={() => void copyDeckExport()}>
+            <Clipboard size={14} />
+            Copy export
+          </Button>
+          <Button variant="outline" size="sm" onClick={downloadDeckExport}>
+            <Download size={14} />
+            Download .txt
+          </Button>
+        </div>
+
+        <div className="deck-name">
+          <input value={name} onChange={(event) => setName(event.target.value)} />
+          <Button
+            size="sm"
+            onClick={() => {
+              if (!isAuthenticated) {
+                onAuthRequired();
+                return;
+              }
+
+              if (!validation.legal) {
+                toast.error("Fix the deck legality warnings before saving.");
+                return;
+              }
+
+              createDeck.mutate({ name });
+            }}
+          >
+            <Database size={14} />
+            Save deck
+          </Button>
+
+          {savedDeckId && (
+            <>
+              <label className="share-expiry">
+                <span>Link expiry</span>
+                <input
+                  type="datetime-local"
+                  value={shareExpiry}
+                  onChange={(event) => setShareExpiry(event.target.value)}
+                />
+              </label>
+
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  shareDeck.mutate({
+                    deckId: savedDeckId,
+                    expiresAt: shareExpiry ? new Date(shareExpiry) : null,
+                  })
+                }
+                disabled={shareDeck.isPending}
+              >
+                <Share2 size={14} />
+                {shareToken ? "Update link" : "Share link"}
+              </Button>
+
+              {shareToken && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => revokeShare.mutate({ deckId: savedDeckId })}
+                  disabled={revokeShare.isPending}
+                >
+                  <X size={14} />
+                  Revoke
+                </Button>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="advisor-card">
+        <div className="advisor-copy">
+          <span className="eyebrow lime">AI DECK ADVISOR / COMPARE BUILDS</span>
+
+          <h3>
+            {advisorResults.length
+              ? `${advisorResults.length} strategies ready to compare`
+              : "Find the strongest deck in your binder"}
+          </h3>
+
+          <p>
+            Choose one or more goals. Each candidate uses only owned cards and
+            is checked against the official RAM and deck-building rules.
+          </p>
+
+          <div className="preset-library">
+            <span className="preset-label">Saved presets</span>
+
+            <div className="preset-list">
+              {WEIGHT_PRESETS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  className="preset-button"
+                  onClick={() => applyPreset(preset)}
+                >
+                  <b>{preset.label}</b>
+                  <small>{preset.detail}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="weight-controls">
+            {(["speed", "control", "budget"] as const).map((key) => (
+              <label key={key}>
+                <span>
+                  <b>{key}</b>
+                  <output>{weights[key]}</output>
+                </span>
+
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={weights[key]}
+                  onChange={(event) =>
+                    updateWeight(key, Number(event.target.value))
+                  }
+                />
+              </label>
+            ))}
+          </div>
+
+          <div className="strategy-picker">
+            {STRATEGY_GOALS.map((goal) => (
+              <button
+                key={goal.id}
+                type="button"
+                className={`strategy-chip ${
+                  strategyGoals.includes(goal.id) ? "selected" : ""
+                }`}
+                onClick={() =>
+                  setStrategyGoals((current) =>
+                    current.includes(goal.id)
+                      ? current.filter((item) => item !== goal.id)
+                      : current.length < 3
+                        ? [...current, goal.id]
+                        : current,
+                  )
+                }
+              >
+                <b>{goal.label}</b>
+                <small>{goal.detail}</small>
+              </button>
+            ))}
+          </div>
+
+          <div className="advisor-actions">
+            <Button
+              onClick={() => {
+                if (!isAuthenticated) {
+                  onAuthRequired();
+                  return;
+                }
+
+                if (!strategyGoals.length) {
+                  toast.error("Choose at least one strategy goal.");
+                  return;
+                }
+
+                advisor.mutate({
+                  goals: strategyGoals,
+                  weights,
+                });
+              }}
+              disabled={advisor.isPending}
+            >
+              <Sparkles size={15} />
+              {advisor.isPending
+                ? "Comparing strategies…"
+                : `Compare ${strategyGoals.length || "selected"} builds`}
+            </Button>
+          </div>
+        </div>
+
+        {advisorResults.length > 0 && (
+          <div className="advisor-comparison">
+            {advisorResults.map((result) => (
+              <article className="advisor-result" key={result.strategy}>
+                <div className="advisor-result-head">
+                  <span className="eyebrow">{result.strategy}</span>
+                  <strong>{result.name}</strong>
+                </div>
+
+                <p>{result.summary}</p>
+
+                <div className="advisor-meta">
+                  <span>{result.totalMain} main cards</span>
+                  <span>{result.legends.length} Legends</span>
+                </div>
+
+                <div className="advisor-meta">
+                  <span>
+                    Simulation:{" "}
+                    {Math.round(result.simulation.overall.winRate * 100)}% win
+                    rate
+                  </span>
+                  <span>{result.simulation.overall.games} games</span>
+                  <span>
+                    {result.simulation.overall.unfinishedGames} unfinished
+                  </span>
+                  <span>
+                    {result.simulation.averageTurns.toFixed(1)} avg turns
+                  </span>
+                </div>
+
+                <div className="advisor-reasons">
+                  {result.whyLegends.slice(0, 2).map((reason) => (
+                    <span key={reason}>{reason}</span>
+                  ))}
+                </div>
+
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => applyRecommendation(result)}
+                >
+                  Use this build <ChevronRight size={13} />
+                </Button>
+
+                <div className="advisor-matchups">
+                  <div className="advisor-matchups-head">
+                    <div>
+                      <span className="eyebrow">ROUND-ROBIN MATCHUPS</span>
+                      <h4>How this build performs into the others</h4>
+                    </div>
+                    <small>
+                      Each matchup contains games from both first-player
+                      orientations.
+                    </small>
+                  </div>
+
+                  <div className="advisor-matchup-list">
+                    {result.matchups.map((matchup) => {
+                      const overall = matchup.evaluation.overall;
+                      const first = matchup.evaluation.candidateFirst;
+                      const second = matchup.evaluation.candidateSecond;
+
+                      return (
+                        <div
+                          className="advisor-matchup"
+                          key={matchup.opponent.name}
+                        >
+                          <div className="advisor-matchup-head">
+                            <div>
+                              <span className="advisor-matchup-vs">VS</span>
+                              <strong>{matchup.opponent.name}</strong>
+                              <small>{matchup.opponent.strategy}</small>
+                            </div>
+
+                            <b>
+                              {Math.round(overall.winRate * 100)}%
+                            </b>
+                          </div>
+
+                          <div className="advisor-matchup-meta">
+                            <span>{overall.games} games</span>
+                            <span>
+                              {overall.unfinishedGames} unfinished
+                            </span>
+                            <span>
+                              First: {Math.round(first.winRate * 100)}%
+                            </span>
+                            <span>
+                              Second: {Math.round(second.winRate * 100)}%
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+
+        {advisorResults.length > 1 && (
+          <div className="advisor-diff">
+            <div className="advisor-diff-head">
+              <div>
+                <span className="eyebrow">CARD-BY-CARD DIFF</span>
+                <h4>Where the builds diverge</h4>
+              </div>
+              <small>Shared cards stay dim; quantity changes glow.</small>
+            </div>
+
+            <div className="diff-table">
+              <div className="diff-row diff-heading">
+                <span>Card</span>
+                {advisorResults.map((result) => (
+                  <span key={result.strategy}>{result.strategy}</span>
+                ))}
+              </div>
+
+              {comparisonRows(advisorResults, cards).map((row) => (
+                <div className="diff-row" key={row.card.id}>
+                  <span className="diff-card">
+                    <i style={{ background: COLOR_META[row.card.color]?.hex }} />
+                    {row.card.name}
+                  </span>
+
+                  {row.quantities.map((quantity, index) => (
+                    <span
+                      className={`diff-cell ${
+                        quantity === 0
+                          ? "empty"
+                          : index === 0 || quantity === row.quantities[0]
+                            ? "same"
+                            : "changed"
+                      }`}
+                      key={`${row.card.id}-${index}`}
+                    >
+                      {quantity || "—"}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     <div className="deck-layout">
       <div className="deck-main">
         <div className="deck-block selected-legends-block">
@@ -3137,7 +3473,8 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
         </a>
       </aside>
     </div>
-  </section>;
+  </section>
+  );
 }
 
 function Overview({ cards, isAuthenticated, setView, onAuthRequired }: { cards: CatalogCard[]; isAuthenticated: boolean; setView: (view: View) => void; onAuthRequired: () => void }) {

@@ -8,10 +8,19 @@ import {
   type MatchupSideEvaluation,
 } from "./evaluation";
 
+export type EvaluatedDeckMatchup = {
+  opponent: {
+    name: string;
+    strategy: DeckRecommendation["strategy"];
+  };
+  evaluation: DeckMatchupEvaluation;
+};
+
 export type EvaluatedDeckCandidate = {
   recommendation: DeckRecommendation;
   deck: EvaluationDeck;
   evaluation: DeckMatchupEvaluation;
+  matchups: EvaluatedDeckMatchup[];
 };
 
 export type OptimizeDeckOptions = {
@@ -239,6 +248,7 @@ export async function evaluateDeckCandidate(
       legends: deck.legends,
     },
     evaluation,
+    matchups: [],
   };
 }
 
@@ -322,6 +332,9 @@ export async function optimizeDeckCandidates(
     ),
   );
 
+  const matchups: EvaluatedDeckMatchup[][] =
+    candidates.map(() => []);
+
   let matchupIndex = 0;
 
   for (
@@ -364,6 +377,22 @@ export async function optimizeDeckCandidates(
         swapMatchupPerspective(matchup),
       );
 
+      matchups[candidateIndex].push({
+        opponent: {
+          name: opponent.recommendation.name,
+          strategy: opponent.recommendation.strategy,
+        },
+        evaluation: matchup,
+      });
+
+      matchups[opponentIndex].push({
+        opponent: {
+          name: candidate.recommendation.name,
+          strategy: candidate.recommendation.strategy,
+        },
+        evaluation: swapMatchupPerspective(matchup),
+      });
+
       matchupIndex += 1;
     }
   }
@@ -373,6 +402,7 @@ export async function optimizeDeckCandidates(
       recommendation: candidate.recommendation,
       deck: candidate.deck,
       evaluation: evaluations[index],
+      matchups: matchups[index],
     }));
 
   evaluatedCandidates.sort(compareCandidates);

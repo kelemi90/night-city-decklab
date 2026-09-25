@@ -3443,3 +3443,118 @@ body {
     cursor: default;
   }
 }
+.advisor-matchups {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.advisor-matchups-head {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+}
+
+.advisor-matchups-head h4 {
+  margin: 3px 0 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.02em;
+}
+
+.advisor-matchups-head small {
+  max-width: 280px;
+  color: rgba(255, 255, 255, 0.48);
+  font-size: 0.72rem;
+  line-height: 1.4;
+  text-align: right;
+}
+
+.advisor-matchup-list {
+  display: grid;
+  gap: 7px;
+}
+
+.advisor-matchup {
+  padding: 10px 11px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.advisor-matchup-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.advisor-matchup-head > div {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  column-gap: 7px;
+}
+
+.advisor-matchup-vs {
+  grid-row: span 2;
+  align-self: center;
+  color: rgba(255, 255, 255, 0.35);
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.advisor-matchup-head strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.78rem;
+}
+
+.advisor-matchup-head small {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.advisor-matchup-head > b {
+  flex: 0 0 auto;
+  color: #b9f36b;
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.advisor-matchup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 12px;
+  margin-top: 7px;
+  color: rgba(255, 255, 255, 0.52);
+  font-size: 0.65rem;
+}
+
+.advisor-matchup-meta span {
+  white-space: nowrap;
+}
+
+@media (max-width: 720px) {
+  .advisor-matchups-head {
+    display: block;
+  }
+
+  .advisor-matchups-head small {
+    display: block;
+    margin-top: 5px;
+    max-width: none;
+    text-align: left;
+  }
+
+  .advisor-matchup-meta {
+    gap: 5px 9px;
+  }
+}
