@@ -3200,10 +3200,13 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
 
         {advisorResults.length > 0 && (
           <div className="advisor-comparison">
-            {advisorResults.map((result) => (
+            {advisorResults.map((result, index) => (
               <article className="advisor-result" key={result.strategy}>
                 <div className="advisor-result-head">
-                  <span className="eyebrow">{result.strategy}</span>
+                  <div className="advisor-result-rank">
+                    <span>#{index + 1}</span>
+                    <span className="eyebrow">{result.strategy}</span>
+                  </div>
                   <strong>{result.name}</strong>
                 </div>
 

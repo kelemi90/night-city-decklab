@@ -2264,6 +2264,20 @@ body {
   gap: 4px;
 }
 
+.advisor-result-rank {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.advisor-result-rank > span:first-child {
+  color: #b9f36b;
+  font-size: 8px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  font-variant-numeric: tabular-nums;
+}
+
 .advisor-result-head strong {
   color: #eef6eb;
   font-size: 13px;
