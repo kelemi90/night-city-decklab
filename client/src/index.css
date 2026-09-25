@@ -3542,6 +3542,12 @@ body {
   white-space: nowrap;
 }
 
+.advisor-matchup-meta span:first-child {
+  color: #b9f36b;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
 @media (max-width: 720px) {
   .advisor-matchups-head {
     display: block;
