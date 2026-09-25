@@ -3292,6 +3292,12 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                             <span>
                               Avg turns: {matchup.evaluation.averageTurns.toFixed(1)}
                             </span>
+                            <span>
+                              First turns: {first.averageTurns.toFixed(1)}
+                            </span>
+                            <span>
+                              Second turns: {second.averageTurns.toFixed(1)}
+                            </span>
                           </div>
                         </div>
                       );
