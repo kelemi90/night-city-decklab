@@ -3289,6 +3289,9 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                             <span>
                               Second: {Math.round(second.winRate * 100)}%
                             </span>
+                            <span>
+                              Avg turns: {matchup.evaluation.averageTurns.toFixed(1)}
+                            </span>
                           </div>
                         </div>
                       );
