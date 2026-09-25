@@ -3256,55 +3256,61 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   </div>
 
                   <div className="advisor-matchup-list">
-                    {result.matchups.map((matchup) => {
-                      const overall = matchup.evaluation.overall;
-                      const first = matchup.evaluation.candidateFirst;
-                      const second = matchup.evaluation.candidateSecond;
+                    {[...result.matchups]
+                      .sort(
+                        (a, b) =>
+                          b.evaluation.overall.winRate -
+                          a.evaluation.overall.winRate,
+                      )
+                      .map((matchup) => {
+                        const overall = matchup.evaluation.overall;
+                        const first = matchup.evaluation.candidateFirst;
+                        const second = matchup.evaluation.candidateSecond;
 
-                      return (
-                        <div
-                          className="advisor-matchup"
-                          key={matchup.opponent.name}
-                        >
-                          <div className="advisor-matchup-head">
-                            <div>
-                              <span className="advisor-matchup-vs">VS</span>
-                              <strong>{matchup.opponent.name}</strong>
-                              <small>{matchup.opponent.strategy}</small>
+                        return (
+                          <div
+                            className="advisor-matchup"
+                            key={matchup.opponent.name}
+                          >
+                            <div className="advisor-matchup-head">
+                              <div>
+                                <span className="advisor-matchup-vs">VS</span>
+                                <strong>{matchup.opponent.name}</strong>
+                                <small>{matchup.opponent.strategy}</small>
+                              </div>
+
+                              <b>
+                                {Math.round(overall.winRate * 100)}%
+                              </b>
                             </div>
 
-                            <b>
-                              {Math.round(overall.winRate * 100)}%
-                            </b>
+                            <div className="advisor-matchup-meta">
+                              <span>
+                                Record: {overall.wins}-{overall.losses}
+                              </span>
+                              <span>{overall.games} games</span>
+                              <span>
+                                {overall.unfinishedGames} unfinished
+                              </span>
+                              <span>
+                                First: {Math.round(first.winRate * 100)}%
+                              </span>
+                              <span>
+                                Second: {Math.round(second.winRate * 100)}%
+                              </span>
+                              <span>
+                                Avg turns: {matchup.evaluation.averageTurns.toFixed(1)}
+                              </span>
+                              <span>
+                                First turns: {first.averageTurns.toFixed(1)}
+                              </span>
+                              <span>
+                                Second turns: {second.averageTurns.toFixed(1)}
+                              </span>
+                            </div>
                           </div>
-
-                          <div className="advisor-matchup-meta">
-                            <span>
-                              Record: {overall.wins}-{overall.losses}
-                            </span>
-                            <span>{overall.games} games</span>
-                            <span>
-                              {overall.unfinishedGames} unfinished
-                            </span>
-                            <span>
-                              First: {Math.round(first.winRate * 100)}%
-                            </span>
-                            <span>
-                              Second: {Math.round(second.winRate * 100)}%
-                            </span>
-                            <span>
-                              Avg turns: {matchup.evaluation.averageTurns.toFixed(1)}
-                            </span>
-                            <span>
-                              First turns: {first.averageTurns.toFixed(1)}
-                            </span>
-                            <span>
-                              Second turns: {second.averageTurns.toFixed(1)}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
+                        );
+                      })}
                   </div>
                 </div>
               </article>
