@@ -3211,6 +3211,14 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                     {index === 0 && <span className="advisor-result-leader-label">LEADER</span>}
                     <span className="eyebrow">{result.strategy}</span>
                   </div>
+
+                  {index === 0 && (
+                    <span className="advisor-result-leader-basis">
+                      {Math.round(result.simulation.overall.winRate * 100)}% WIN RATE ·{" "}
+                      {result.simulation.overall.unfinishedGames} UNFINISHED
+                    </span>
+                  )}
+
                   <strong>{result.name}</strong>
                 </div>
 
