@@ -3304,9 +3304,6 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                             </div>
 
                             <div className="advisor-matchup-meta">
-                              <span>
-                                Record: {overall.wins}-{overall.losses}
-                              </span>
                               <span>{overall.games} games</span>
                               <span>
                                 {overall.unfinishedGames} unfinished
