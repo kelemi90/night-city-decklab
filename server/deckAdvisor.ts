@@ -91,8 +91,49 @@ export async function recommendDeck(owned: OwnedCard[], goal: StrategyGoal = "mi
   return { ...recommendation, totalMain: validation.totalMain };
 }
 
-export async function recommendDecks(owned: OwnedCard[], goals: StrategyGoal[], weights: StrategyWeights) {
-  return Promise.all(goals.map((goal) => recommendDeck(owned, goal, weights)));
+export function recommendationDeckKey(
+  recommendation: DeckRecommendation,
+): string {
+  const legends = [...recommendation.legends]
+    .sort((a, b) => a.cardId - b.cardId)
+    .map((line) => `${line.cardId}:${line.quantity}`)
+    .join(",");
+
+  const main = [...recommendation.main]
+    .sort((a, b) => a.cardId - b.cardId)
+    .map((line) => `${line.cardId}:${line.quantity}`)
+    .join(",");
+
+  return `legends=${legends}|main=${main}`;
+}
+
+export function deduplicateRecommendations(
+  recommendations: DeckRecommendation[],
+): DeckRecommendation[] {
+  const seen = new Set<string>();
+
+  return recommendations.filter((recommendation) => {
+    const key = recommendationDeckKey(recommendation);
+
+    if (seen.has(key)) {
+      return false;
+    }
+
+    seen.add(key);
+    return true;
+  });
+}
+
+export async function recommendDecks(
+  owned: OwnedCard[],
+  goals: StrategyGoal[],
+  weights: StrategyWeights,
+) {
+  const recommendations = await Promise.all(
+    goals.map((goal) => recommendDeck(owned, goal, weights)),
+  );
+
+  return deduplicateRecommendations(recommendations);
 }
 
 export function ownedCatalogRows(collection: Array<{ cardId: number; quantity: number }>, cards = FULL_CATALOG) {
