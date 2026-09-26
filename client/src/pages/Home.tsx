@@ -2730,6 +2730,7 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
     setMain({});
     setName("Untitled Deck");
     setDeckEdition("retail");
+    setCardPool("all");
   }
 
   function openSavedDeck(deck: { id: number; name: string }) {
