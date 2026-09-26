@@ -3309,19 +3309,19 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                                 {overall.unfinishedGames} unfinished
                               </span>
                               <span>
-                                First: {Math.round(first.winRate * 100)}%
+                                Candidate first: {Math.round(first.winRate * 100)}%
                               </span>
                               <span>
-                                Second: {Math.round(second.winRate * 100)}%
+                                Candidate second: {Math.round(second.winRate * 100)}%
                               </span>
                               <span>
                                 Avg turns: {matchup.evaluation.averageTurns.toFixed(1)}
                               </span>
                               <span>
-                                First turns: {first.averageTurns.toFixed(1)}
+                                Candidate first turns: {first.averageTurns.toFixed(1)}
                               </span>
                               <span>
-                                Second turns: {second.averageTurns.toFixed(1)}
+                                Candidate second turns: {second.averageTurns.toFixed(1)}
                               </span>
                             </div>
                           </div>
