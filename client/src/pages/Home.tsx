@@ -3208,7 +3208,8 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   {index === 0 && (
                     <span className="advisor-result-leader-basis">
                       {Math.round(result.simulation.overall.winRate * 100)}% WIN RATE ·{" "}
-                      {result.simulation.overall.unfinishedGames} UNFINISHED
+                      {result.simulation.overall.unfinishedGames} UNFINISHED ·{" "}
+                      {result.simulation.averageTurns.toFixed(1)} AVG TURNS
                     </span>
                   )}
 
@@ -3259,8 +3260,10 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                       <h4>How this build performs into the others</h4>
                     </div>
                     <small>
-                      Each matchup contains games from both first-player
-                      orientations.
+                      {result.matchups[0]?.evaluation.gamesPerSide ?? 0} games
+                      per side ·{" "}
+                      {(result.matchups[0]?.evaluation.gamesPerSide ?? 0) * 2}{" "}
+                      total per matchup · both first-player orientations.
                     </small>
                   </div>
 
