@@ -3424,7 +3424,7 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
               <span className={`count-pill ${validation.totalMain >= 40 && validation.totalMain <= 50 ? "good" : "warn"}`}>{validation.totalMain} / 50</span>
             </div>
             <div className="deck-card-list">
-              {availableMainCards.map((card) => (
+              {mainCards.map((card) => (
                 <div
                   className="deck-card-line"
                   key={card.id}
