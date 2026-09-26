@@ -3573,9 +3573,17 @@ body {
 }
 
 .advisor-matchup-result b {
-  color: #b9f36b;
+  color: rgba(255, 255, 255, 0.68);
   font-size: 1rem;
   font-variant-numeric: tabular-nums;
+}
+
+.advisor-matchup-result-win b {
+  color: #b9f36b;
+}
+
+.advisor-matchup-result-loss b {
+  color: #e58a8a;
 }
 
 .advisor-matchup-meta {

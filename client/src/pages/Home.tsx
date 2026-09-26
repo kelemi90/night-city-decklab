@@ -3295,7 +3295,15 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                                 <small>{matchup.opponent.strategy}</small>
                               </div>
 
-                              <div className="advisor-matchup-result">
+                              <div
+                                className={`advisor-matchup-result ${
+                                  overall.wins > overall.losses
+                                    ? "advisor-matchup-result-win"
+                                    : overall.wins < overall.losses
+                                      ? "advisor-matchup-result-loss"
+                                      : ""
+                                }`}
+                              >
                                 <strong>
                                   {overall.wins}-{overall.losses}
                                 </strong>
