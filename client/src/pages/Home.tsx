@@ -2634,10 +2634,6 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
     {} as Record<CardColor, number>,
   );
 
-  const availableMainCards = mainCards.filter(
-    (card) => card.ram <= (availableRam[card.color] ?? 0),
-  );
-
   function updateWeight(key: keyof typeof weights, value: number) { setWeights((current) => ({ ...current, [key]: value })); }
   function applyPreset(preset: (typeof WEIGHT_PRESETS)[number]) { setStrategyGoals(preset.goals); setWeights(preset.weights); toast.success(`${preset.label} preset applied.`); }
   function toggleLegend(id: number) {
