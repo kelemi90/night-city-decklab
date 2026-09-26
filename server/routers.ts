@@ -714,6 +714,7 @@ export const appRouter = router({
 
         return optimized.candidates.map((candidate) => ({
           ...candidate.recommendation,
+          edition: input.edition,
           simulation: candidate.evaluation,
           matchups: candidate.matchups,
         }));
