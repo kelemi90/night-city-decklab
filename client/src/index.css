@@ -3605,6 +3605,20 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.advisor-matchup-orientation {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.advisor-matchup-orientation i {
+  color: rgba(255, 255, 255, 0.34);
+  font-size: 0.54rem;
+  font-style: normal;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
 @media (max-width: 720px) {
   .advisor-matchups-head {
     display: block;
