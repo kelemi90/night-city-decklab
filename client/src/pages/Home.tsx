@@ -3342,50 +3342,61 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
           </div>
         )}
 
-        {advisorResults.length > 1 && (
-          <div className="advisor-diff">
-            <div className="advisor-diff-head">
-              <div>
-                <span className="eyebrow">CARD-BY-CARD DIFF</span>
-                <h4>Where the builds diverge</h4>
+        {advisorResults.length > 1 && (() => {
+          const diffRows = comparisonRows(advisorResults, cards);
+          const changedCards = diffRows.filter(
+            (row) => new Set(row.quantities).size > 1,
+          ).length;
+          const sharedCards = diffRows.length - changedCards;
+
+          return (
+            <div className="advisor-diff">
+              <div className="advisor-diff-head">
+                <div>
+                  <span className="eyebrow">CARD-BY-CARD DIFF</span>
+                  <h4>Where the builds diverge</h4>
+                </div>
+                <small>
+                  {changedCards} {changedCards === 1 ? "card" : "cards"} differ ·{" "}
+                  {sharedCards} shared
+                </small>
               </div>
-              <small>Shared cards stay dim; quantity changes glow.</small>
-            </div>
 
-            <div className="diff-table">
-              <div className="diff-row diff-heading">
-                <span>Card</span>
-                {advisorResults.map((result) => (
-                  <span key={result.strategy}>{result.strategy}</span>
-                ))}
-              </div>
-
-              {comparisonRows(advisorResults, cards).map((row) => (
-                <div className="diff-row" key={row.card.id}>
-                  <span className="diff-card">
-                    <i style={{ background: COLOR_META[row.card.color]?.hex }} />
-                    {row.card.name}
-                  </span>
-
-                  {row.quantities.map((quantity, index) => (
-                    <span
-                      className={`diff-cell ${
-                        quantity === 0
-                          ? "empty"
-                          : index === 0 || quantity === row.quantities[0]
-                            ? "same"
-                            : "changed"
-                      }`}
-                      key={`${row.card.id}-${index}`}
-                    >
-                      {quantity || "—"}
-                    </span>
+              <div className="diff-table">
+                <div className="diff-row diff-heading">
+                  <span>Card</span>
+                  {advisorResults.map((result) => (
+                    <span key={result.strategy}>{result.strategy}</span>
                   ))}
                 </div>
-              ))}
+
+                {diffRows.map((row) => (
+                  <div className="diff-row" key={row.card.id}>
+                    <span className="diff-card">
+                      <i style={{ background: COLOR_META[row.card.color]?.hex }} />
+                      {row.card.name}
+                    </span>
+
+                    {row.quantities.map((quantity, index) => (
+                      <span
+                        className={`diff-cell ${
+                          quantity === 0
+                            ? "empty"
+                            : index === 0 || quantity === row.quantities[0]
+                              ? "same"
+                              : "changed"
+                        }`}
+                        key={`${row.card.id}-${index}`}
+                      >
+                        {quantity || "—"}
+                      </span>
+                    ))}
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </div>
     <div className="deck-layout">
       <div className="deck-main">
