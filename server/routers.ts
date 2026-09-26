@@ -678,13 +678,18 @@ export const appRouter = router({
             control: z.number().int().min(0).max(100),
             budget: z.number().int().min(0).max(100),
           }),
+          edition: z.enum(["retail", "beta"]),
         }),
       )
       .mutation(async ({ ctx, input }) => {
         const collection = await getCollection(ctx.user.id);
 
+        const editionCards = FULL_CATALOG.filter(
+          (card) => (card.edition ?? "retail") === input.edition,
+        );
+
         const recommendations = await recommendDecks(
-          ownedCatalogRows(collection),
+          ownedCatalogRows(collection, editionCards),
           Array.from(new Set(input.goals)),
           input.weights,
         );

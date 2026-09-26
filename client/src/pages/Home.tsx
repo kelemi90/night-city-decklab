@@ -3151,9 +3151,8 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
               <button
                 key={goal.id}
                 type="button"
-                className={`strategy-chip ${
-                  strategyGoals.includes(goal.id) ? "selected" : ""
-                }`}
+                className={`strategy-chip ${strategyGoals.includes(goal.id) ? "selected" : ""
+                  }`}
                 onClick={() =>
                   setStrategyGoals((current) =>
                     current.includes(goal.id)
@@ -3183,10 +3182,7 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   return;
                 }
 
-                advisor.mutate({
-                  goals: strategyGoals,
-                  weights,
-                });
+                advisor.mutate({ goals: strategyGoals, weights, edition: deckEdition })
               }}
               disabled={advisor.isPending}
             >
@@ -3296,13 +3292,12 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                               </div>
 
                               <div
-                                className={`advisor-matchup-result ${
-                                  overall.wins > overall.losses
+                                className={`advisor-matchup-result ${overall.wins > overall.losses
                                     ? "advisor-matchup-result-win"
                                     : overall.wins < overall.losses
                                       ? "advisor-matchup-result-loss"
                                       : ""
-                                }`}
+                                  }`}
                               >
                                 <strong>
                                   {overall.wins}-{overall.losses}
@@ -3379,13 +3374,12 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
 
                     {row.quantities.map((quantity, index) => (
                       <span
-                        className={`diff-cell ${
-                          quantity === 0
+                        className={`diff-cell ${quantity === 0
                             ? "empty"
                             : index === 0 || quantity === row.quantities[0]
                               ? "same"
                               : "changed"
-                        }`}
+                          }`}
                         key={`${row.card.id}-${index}`}
                       >
                         {quantity || "—"}
@@ -3398,135 +3392,135 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
           );
         })()}
       </div>
-    <div className="deck-layout">
-      <div className="deck-main">
-        <div className="deck-block selected-legends-block">
-          <div className="block-head">
-            <div>
-              <span className="eyebrow">Selected Legends</span>
-              <h3>Your crew defines the RAM ceiling</h3>
+      <div className="deck-layout">
+        <div className="deck-main">
+          <div className="deck-block selected-legends-block">
+            <div className="block-head">
+              <div>
+                <span className="eyebrow">Selected Legends</span>
+                <h3>Your crew defines the RAM ceiling</h3>
+              </div>
+
+              <span className="count-pill">
+                {legends.length} / 3
+              </span>
             </div>
 
-            <span className="count-pill">
-              {legends.length} / 3
-            </span>
-          </div>
-
-          <div className="selected-legends-grid">
-            {selectedLegendCards.map((card) => (
-              <SelectedLegendSummary
-                key={card.id}
-                card={card}
-              />
-            ))}
-          </div>
-        </div>
-        <div className="deck-block">
-          <div className="block-head">
-            <div>
-              <span className="eyebrow">02 / Main deck</span>
-              <h3>Build the 40–50 card core</h3>
-            </div>
-            <span className={`count-pill ${validation.totalMain >= 40 && validation.totalMain <= 50 ? "good" : "warn"}`}>{validation.totalMain} / 50</span>
-          </div>
-          <div className="deck-card-list">
-            {availableMainCards.map((card) => (
-              <div
-                className="deck-card-line"
-                key={card.id}
-                onMouseLeave={() => setHoveredMainCardId(undefined)}
-              >
-                <div
-                  className="line-orb"
-                  style={{
-                    background:
-                      COLOR_META[card.color as CardColor]?.hex,
-                  }}
+            <div className="selected-legends-grid">
+              {selectedLegendCards.map((card) => (
+                <SelectedLegendSummary
+                  key={card.id}
+                  card={card}
                 />
-
-                <div className="line-name">
+              ))}
+            </div>
+          </div>
+          <div className="deck-block">
+            <div className="block-head">
+              <div>
+                <span className="eyebrow">02 / Main deck</span>
+                <h3>Build the 40–50 card core</h3>
+              </div>
+              <span className={`count-pill ${validation.totalMain >= 40 && validation.totalMain <= 50 ? "good" : "warn"}`}>{validation.totalMain} / 50</span>
+            </div>
+            <div className="deck-card-list">
+              {availableMainCards.map((card) => (
+                <div
+                  className="deck-card-line"
+                  key={card.id}
+                  onMouseLeave={() => setHoveredMainCardId(undefined)}
+                >
                   <div
-                    className="deck-card-name-trigger"
-                    onMouseEnter={() => setHoveredMainCardId(card.id)}
-                  >
-                    <b>{card.name}</b>
+                    className="line-orb"
+                    style={{
+                      background:
+                        COLOR_META[card.color as CardColor]?.hex,
+                    }}
+                  />
 
-                    {hoveredMainCardId === card.id && (
-                      <DeckCardHoverPreview
-                        card={card}
-                        details={cardDetails[card.id]}
-                      />
-                    )}
+                  <div className="line-name">
+                    <div
+                      className="deck-card-name-trigger"
+                      onMouseEnter={() => setHoveredMainCardId(card.id)}
+                    >
+                      <b>{card.name}</b>
+
+                      {hoveredMainCardId === card.id && (
+                        <DeckCardHoverPreview
+                          card={card}
+                          details={cardDetails[card.id]}
+                        />
+                      )}
+                    </div>
+
+                    <small>
+                      {card.kind} ·{" "}
+                      {COLOR_META[card.color as CardColor]?.label} RAM{" "}
+                      {card.ram}
+                    </small>
                   </div>
 
-                  <small>
-                    {card.kind} ·{" "}
-                    {COLOR_META[card.color as CardColor]?.label} RAM{" "}
-                    {card.ram}
-                  </small>
+                  <span className="line-price">
+                    {money(card.marketCents)}
+                  </span>
+
+                  <div className="stepper">
+                    <button
+                      type="button"
+                      onClick={() => bump(card.id, -1)}
+                      disabled={!main[card.id]}
+                    >
+                      <Minus size={13} />
+                    </button>
+
+                    <b>{main[card.id] ?? 0}</b>
+
+                    <button
+                      type="button"
+                      onClick={() => bump(card.id, 1)}
+                      disabled={(main[card.id] ?? 0) >= 3}
+                    >
+                      <Plus size={13} />
+                    </button>
+                  </div>
                 </div>
-
-                <span className="line-price">
-                  {money(card.marketCents)}
-                </span>
-
-                <div className="stepper">
-                  <button
-                    type="button"
-                    onClick={() => bump(card.id, -1)}
-                    disabled={!main[card.id]}
-                  >
-                    <Minus size={13} />
-                  </button>
-
-                  <b>{main[card.id] ?? 0}</b>
-
-                  <button
-                    type="button"
-                    onClick={() => bump(card.id, 1)}
-                    disabled={(main[card.id] ?? 0) >= 3}
-                  >
-                    <Plus size={13} />
-                  </button>
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
+        <aside className="rules-card">
+          <div className="rules-top">
+            <span className="eyebrow">Legality check</span>{validation.legal ? <span className="legal-badge">
+              <Check size={14} />LEGAL</span> : <span className="illegal-badge"><X size={14} />IN PROGRESS</span>}
+          </div>
+          <div className="rules-score">
+            <strong>{validation.totalMain}</strong>
+            <span>main cards</span>
+          </div>
+          <div className="ram-bars">{Object.entries(validation.ram).filter(([, value]) => value > 0).map(([color, value]) => <div className="ram-bar" key={color}><div>
+            <span style={{ color: COLOR_META[color as CardColor]?.hex }}>{COLOR_META[color as CardColor]?.label} RAM</span>
+            <b>{value}</b>
+          </div>
+            <div className="bar-track">
+              <span style={{ width: `${Math.min(100, value * 25)}%`, background: COLOR_META[color as CardColor]?.hex }} />
+            </div>
+          </div>
+          )}
+          </div>
+          <div className="rules-copy"><b>RAM protocol</b>
+            <p>Your three Legends set the maximum RAM value for each color. Every card must stay within its color ceiling.</p>
+          </div>
+          <div className="validation-list">{validation.errors.length ? validation.errors.slice(0, 5).map((error) =>
+            <div key={error}>
+              <X size={14} />{error}</div>) : <div className="valid-line">
+            <Check size={14} />Deck meets the published build rules.</div>
+          }
+          </div>
+          <a className="rules-link" href="https://cyberpunktcg.com/gameplay-guide#gameplay-guide-deck-building-ram" target="_blank" rel="noreferrer">Read official deck rules <ExternalLink size={14} />
+          </a>
+        </aside>
       </div>
-      <aside className="rules-card">
-        <div className="rules-top">
-          <span className="eyebrow">Legality check</span>{validation.legal ? <span className="legal-badge">
-            <Check size={14} />LEGAL</span> : <span className="illegal-badge"><X size={14} />IN PROGRESS</span>}
-        </div>
-        <div className="rules-score">
-          <strong>{validation.totalMain}</strong>
-          <span>main cards</span>
-        </div>
-        <div className="ram-bars">{Object.entries(validation.ram).filter(([, value]) => value > 0).map(([color, value]) => <div className="ram-bar" key={color}><div>
-          <span style={{ color: COLOR_META[color as CardColor]?.hex }}>{COLOR_META[color as CardColor]?.label} RAM</span>
-          <b>{value}</b>
-        </div>
-          <div className="bar-track">
-            <span style={{ width: `${Math.min(100, value * 25)}%`, background: COLOR_META[color as CardColor]?.hex }} />
-          </div>
-        </div>
-        )}
-        </div>
-        <div className="rules-copy"><b>RAM protocol</b>
-          <p>Your three Legends set the maximum RAM value for each color. Every card must stay within its color ceiling.</p>
-        </div>
-        <div className="validation-list">{validation.errors.length ? validation.errors.slice(0, 5).map((error) =>
-          <div key={error}>
-            <X size={14} />{error}</div>) : <div className="valid-line">
-          <Check size={14} />Deck meets the published build rules.</div>
-        }
-        </div>
-        <a className="rules-link" href="https://cyberpunktcg.com/gameplay-guide#gameplay-guide-deck-building-ram" target="_blank" rel="noreferrer">Read official deck rules <ExternalLink size={14} />
-        </a>
-      </aside>
-    </div>
-  </section>
+    </section>
   );
 }
 
