@@ -695,7 +695,7 @@ export const appRouter = router({
         );
 
         const simulationOptions: OptimizeDeckOptions = {
-          gamesPerSide: 5,
+          gamesPerSide: 10,
           maxTurns: 200,
         };
 
