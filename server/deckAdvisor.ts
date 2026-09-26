@@ -72,7 +72,7 @@ export function validateRecommendation(recommendation: DeckRecommendation, owned
 export async function recommendDeck(owned: OwnedCard[], goal: StrategyGoal = "midrange", weights: StrategyWeights = { speed: 50, control: 50, budget: 50 }): Promise<DeckRecommendation> {
   if (owned.filter((card) => card.kind === "legend").length < 3) throw new Error("You need at least three owned Legends before the advisor can build a legal deck.");
   if (owned.filter((card) => card.kind !== "legend").reduce((sum, card) => sum + card.ownedQuantity, 0) < 40) throw new Error("You need at least 40 owned main-deck cards before the advisor can build a legal deck.");
-  const compactCards = owned.map((card) => ({ id: card.id, name: card.name, subtitle: card.subtitle, kind: card.kind, color: card.color, ram: card.ram, cost: card.cost ?? null, power: card.power ?? null, ownedQuantity: card.ownedQuantity }));
+  const compactCards = owned.map((card) => ({ id: card.id, name: card.name, subtitle: card.subtitle, kind: card.kind, color: card.color, ram: card.ram, cost: card.cost ?? null, power: card.power ?? null, marketCents: card.marketCents, ownedQuantity: card.ownedQuantity }));
   const response = await invokeLLM({
     model: "gpt-5-mini",
     messages: [
