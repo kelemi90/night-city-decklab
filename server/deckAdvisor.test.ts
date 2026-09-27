@@ -23,82 +23,93 @@ const owned = ownedCatalogRows([
   { cardId: 8, quantity: 3 },
 ]);
 
-describe("AI deck advisor market-price payload", () => {
-  it("passes marketCents and budget weighting to the LLM", async () => {
-    invokeLLM.mockResolvedValue({
-      choices: [{
-        message: {
-          content: JSON.stringify({
-            name: "Budget test deck",
-            strategy: "budget aggro",
-            summary: "test",
-            whyLegends: ["test", "test", "test"],
-            legends: [
-              { cardId: 1, quantity: 1 },
-              { cardId: 2, quantity: 1 },
-              { cardId: 3, quantity: 1 },
-            ],
-            main: [
-              { cardId: 8, quantity: 3 },
-              { cardId: 9, quantity: 3 },
-              { cardId: 10, quantity: 3 },
-              { cardId: 11, quantity: 3 },
-              { cardId: 12, quantity: 3 },
-              { cardId: 13, quantity: 3 },
-              { cardId: 14, quantity: 3 },
-              { cardId: 15, quantity: 3 },
-              { cardId: 16, quantity: 3 },
-              { cardId: 17, quantity: 3 },
-              { cardId: 18, quantity: 3 },
-              { cardId: 19, quantity: 3 },
-              { cardId: 20, quantity: 2 },
-              { cardId: 21, quantity: 2 },
-            ],
-            upgradeSuggestions: [],
-          }),
-        },
-      }],
-    });
+describe("AI deck advisor preference payload", () => {
+  const weights = [
+    { speed: 85, control: 25, budget: 10, label: "speed-heavy" },
+    { speed: 25, control: 90, budget: 65, label: "control-heavy" },
+    { speed: 50, control: 50, budget: 90, label: "budget-heavy" },
+  ];
 
-    const result = await recommendDeck(
-      ownedCatalogRows([
-        { cardId: 1, quantity: 1 },
-        { cardId: 2, quantity: 1 },
-        { cardId: 3, quantity: 1 },
-        { cardId: 8, quantity: 3 },
-        { cardId: 9, quantity: 3 },
-        { cardId: 10, quantity: 3 },
-        { cardId: 11, quantity: 3 },
-        { cardId: 12, quantity: 3 },
-        { cardId: 13, quantity: 3 },
-        { cardId: 14, quantity: 3 },
-        { cardId: 15, quantity: 3 },
-        { cardId: 16, quantity: 3 },
-        { cardId: 17, quantity: 3 },
-        { cardId: 18, quantity: 3 },
-        { cardId: 19, quantity: 3 },
-        { cardId: 20, quantity: 2 },
-        { cardId: 21, quantity: 2 },
-      ]),
-      "aggro",
-      { speed: 85, control: 25, budget: 10 },
-    );
+  it.each(weights)(
+    "passes $label weighting to the LLM",
+    async ({ speed, control, budget }) => {
+      invokeLLM.mockClear();
+      invokeLLM.mockResolvedValue({
+        choices: [{
+          message: {
+            content: JSON.stringify({
+              name: "Preference test deck",
+              strategy: "weighted test",
+              summary: "test",
+              whyLegends: ["test", "test", "test"],
+              legends: [
+                { cardId: 1, quantity: 1 },
+                { cardId: 2, quantity: 1 },
+                { cardId: 3, quantity: 1 },
+              ],
+              main: [
+                { cardId: 8, quantity: 3 },
+                { cardId: 9, quantity: 3 },
+                { cardId: 10, quantity: 3 },
+                { cardId: 11, quantity: 3 },
+                { cardId: 12, quantity: 3 },
+                { cardId: 13, quantity: 3 },
+                { cardId: 14, quantity: 3 },
+                { cardId: 15, quantity: 3 },
+                { cardId: 16, quantity: 3 },
+                { cardId: 17, quantity: 3 },
+                { cardId: 18, quantity: 3 },
+                { cardId: 19, quantity: 3 },
+                { cardId: 20, quantity: 2 },
+                { cardId: 21, quantity: 2 },
+              ],
+              upgradeSuggestions: [],
+            }),
+          },
+        }],
+      });
 
-    expect(result.strategy).toBe("budget aggro");
-    expect(invokeLLM).toHaveBeenCalledTimes(1);
+      const result = await recommendDeck(
+        ownedCatalogRows([
+          { cardId: 1, quantity: 1 },
+          { cardId: 2, quantity: 1 },
+          { cardId: 3, quantity: 1 },
+          { cardId: 8, quantity: 3 },
+          { cardId: 9, quantity: 3 },
+          { cardId: 10, quantity: 3 },
+          { cardId: 11, quantity: 3 },
+          { cardId: 12, quantity: 3 },
+          { cardId: 13, quantity: 3 },
+          { cardId: 14, quantity: 3 },
+          { cardId: 15, quantity: 3 },
+          { cardId: 16, quantity: 3 },
+          { cardId: 17, quantity: 3 },
+          { cardId: 18, quantity: 3 },
+          { cardId: 19, quantity: 3 },
+          { cardId: 20, quantity: 2 },
+          { cardId: 21, quantity: 2 },
+        ]),
+        "aggro",
+        { speed, control, budget },
+      );
 
-    const request = invokeLLM.mock.calls[0][0];
-    const userMessage = request.messages.find(
-      (message: { role: string }) => message.role === "user",
-    );
+      expect(result.strategy).toBe("weighted test");
+      expect(invokeLLM).toHaveBeenCalledTimes(1);
 
-    expect(userMessage?.content).toContain('"marketCents"');
-    expect(userMessage?.content).toContain('"ownedQuantity":1');
-    expect(userMessage?.content).toContain(
-      "speed=85, control=25, budget=10",
-    );
-    expect(userMessage?.content).toContain("high-market-value");
-  });
+      const request = invokeLLM.mock.calls.at(-1)?.[0];
+      const userMessage = request.messages.find(
+        (message: { role: string }) => message.role === "user",
+      );
+
+      expect(userMessage?.content).toContain('"marketCents"');
+      expect(userMessage?.content).toContain('"ownedQuantity":1');
+      expect(userMessage?.content).toContain(
+        `speed=${speed}, control=${control}, budget=${budget}`,
+      );
+      expect(userMessage?.content).toContain("high-market-value");
+      expect(userMessage?.content).toContain("lower market value");
+    },
+  );
 });
 
 describe("AI deck advisor guardrails", () => {
