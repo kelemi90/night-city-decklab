@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import type { DeckRecommendation } from "../deckAdvisor";
 import type { SimulatorCard } from "./types";
 import {
+  compareCandidates,
   evaluateDeckCandidate,
   optimizeDeckCandidates,
 } from "./optimizer";
@@ -92,7 +93,152 @@ const opponent = {
   })),
 };
 
+function createEvaluatedCandidate(
+  name: string,
+  {
+    winRate = 0.5,
+    unfinishedGames = 0,
+    averageTurns = 10,
+  }: {
+    winRate?: number;
+    unfinishedGames?: number;
+    averageTurns?: number;
+  } = {},
+) {
+  return {
+    recommendation: createRecommendation(name),
+    deck: {
+      cards: Array.from({ length: 40 }, () => ({ ...unit })),
+      legends: legends.map((legend) => ({ ...legend })),
+    },
+    evaluation: {
+      gamesPerSide: 5,
+      candidateFirst: {
+        deck: "candidate" as const,
+        firstPlayer: 0 as const,
+        games: 5,
+        wins: 3,
+        losses: 2,
+        unfinishedGames: 0,
+        winRate: 0.6,
+        averageTurns,
+        averageAttacks: 0,
+        averageGigSteals: 0,
+        averageCardsPlayed: 0,
+        averageUnitsDefeated: 0,
+      },
+      candidateSecond: {
+        deck: "candidate" as const,
+        firstPlayer: 1 as const,
+        games: 5,
+        wins: 2,
+        losses: 3,
+        unfinishedGames: 0,
+        winRate: 0.4,
+        averageTurns,
+        averageAttacks: 0,
+        averageGigSteals: 0,
+        averageCardsPlayed: 0,
+        averageUnitsDefeated: 0,
+      },
+      overall: {
+        games: 10,
+        wins: Math.round(winRate * 10),
+        losses: 10 - Math.round(winRate * 10) - unfinishedGames,
+        unfinishedGames,
+        winRate,
+      },
+      averageTurns,
+      averageAttacks: 0,
+      averageGigSteals: 0,
+      averageCardsPlayed: 0,
+      averageUnitsDefeated: 0,
+    },
+    matchups: [],
+  };
+}
+
 describe("Cyberpunk TCG deck optimizer", () => {
+  it("ranks higher simulation win rate first", () => {
+    const higherWinRate = createEvaluatedCandidate(
+      "Higher Win Rate",
+      {
+        winRate: 0.7,
+        unfinishedGames: 3,
+        averageTurns: 20,
+      },
+    );
+
+    const lowerWinRate = createEvaluatedCandidate(
+      "Lower Win Rate",
+      {
+        winRate: 0.6,
+        unfinishedGames: 0,
+        averageTurns: 5,
+      },
+    );
+
+    expect(
+      compareCandidates(
+        higherWinRate,
+        lowerWinRate,
+      ),
+    ).toBeLessThan(0);
+  });
+
+  it("uses unfinished games as the first tie-breaker", () => {
+    const fewerUnfinished = createEvaluatedCandidate(
+      "Fewer Unfinished",
+      {
+        winRate: 0.6,
+        unfinishedGames: 1,
+        averageTurns: 20,
+      },
+    );
+
+    const moreUnfinished = createEvaluatedCandidate(
+      "More Unfinished",
+      {
+        winRate: 0.6,
+        unfinishedGames: 2,
+        averageTurns: 5,
+      },
+    );
+
+    expect(
+      compareCandidates(
+        fewerUnfinished,
+        moreUnfinished,
+      ),
+    ).toBeLessThan(0);
+  });
+
+  it("uses average turns as the final tie-breaker", () => {
+    const fewerTurns = createEvaluatedCandidate(
+      "Fewer Turns",
+      {
+        winRate: 0.6,
+        unfinishedGames: 1,
+        averageTurns: 8,
+      },
+    );
+
+    const moreTurns = createEvaluatedCandidate(
+      "More Turns",
+      {
+        winRate: 0.6,
+        unfinishedGames: 1,
+        averageTurns: 12,
+      },
+    );
+
+    expect(
+      compareCandidates(
+        fewerTurns,
+        moreTurns,
+      ),
+    ).toBeLessThan(0);
+  });
   it("evaluates a recommendation through the simulator", async () => {
     const result = await evaluateDeckCandidate(
       createRecommendation("Test Deck"),

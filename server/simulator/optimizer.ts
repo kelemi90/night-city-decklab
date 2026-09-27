@@ -34,7 +34,7 @@ export type OptimizedDeckResult = {
   candidates: EvaluatedDeckCandidate[];
 };
 
-function compareCandidates(
+export function compareCandidates(
   a: EvaluatedDeckCandidate,
   b: EvaluatedDeckCandidate,
 ): number {
