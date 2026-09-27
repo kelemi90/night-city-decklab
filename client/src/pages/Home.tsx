@@ -3239,6 +3239,25 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   </span>
                 </div>
 
+                <div className="advisor-config">
+                  <span>
+                    <small>GOALS</small>
+                    <b>{result.advisorConfig.goals.join(" · ")}</b>
+                  </span>
+                  <span>
+                    <small>SPEED</small>
+                    <b>{result.advisorConfig.weights.speed}</b>
+                  </span>
+                  <span>
+                    <small>CONTROL</small>
+                    <b>{result.advisorConfig.weights.control}</b>
+                  </span>
+                  <span>
+                    <small>BUDGET</small>
+                    <b>{result.advisorConfig.weights.budget}</b>
+                  </span>
+                </div>
+
                 <div className="advisor-simulation-profile">
                   <span>
                     <b>{result.simulation.averageAttacks.toFixed(1)}</b>

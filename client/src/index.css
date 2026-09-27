@@ -2319,6 +2319,39 @@ body {
   margin-top: 0;
 }
 
+.advisor-config {
+  display: grid;
+  grid-template-columns: minmax(0, 1.7fr) repeat(3, minmax(0, 0.75fr));
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.advisor-config span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 5px;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.015);
+}
+
+.advisor-config small {
+  color: rgba(255, 255, 255, 0.32);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.advisor-config b {
+  overflow: hidden;
+  color: #b9f36b;
+  font-size: 8px;
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
 .advisor-simulation-profile {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
