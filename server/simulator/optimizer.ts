@@ -1,5 +1,13 @@
 import type { CatalogCard } from "../../shared/deckRules";
-import type { DeckRecommendation } from "../deckAdvisor";
+import type {
+  DeckRecommendation,
+  StrategyWeights,
+} from "../deckAdvisor";
+import {
+  calculatePreferenceFit,
+  loadPreferenceCatalog,
+  type PreferenceFit,
+} from "./preferenceFit";
 import { recommendationToSimulatorDeck } from "./deckAdapter";
 import {
   evaluateDeckMatchup,
@@ -21,12 +29,14 @@ export type EvaluatedDeckCandidate = {
   deck: EvaluationDeck;
   evaluation: DeckMatchupEvaluation;
   matchups: EvaluatedDeckMatchup[];
+  preferenceFit: PreferenceFit;
 };
 
 export type OptimizeDeckOptions = {
   gamesPerSide: number;
   seed?: number;
   maxTurns?: number;
+  weights?: StrategyWeights;
 };
 
 export type OptimizedDeckResult = {
@@ -249,6 +259,11 @@ export async function evaluateDeckCandidate(
     },
     evaluation,
     matchups: [],
+    preferenceFit: calculatePreferenceFit(
+      recommendation,
+      await loadPreferenceCatalog(catalog),
+      options.weights,
+    ),
   };
 }
 
@@ -307,6 +322,9 @@ export async function optimizeDeckCandidates(
       "gamesPerSide must be a positive integer.",
     );
   }
+
+  const preferenceCatalog =
+    await loadPreferenceCatalog(catalog);
 
   const candidates = await Promise.all(
     recommendations.map(async (recommendation) => {
@@ -403,6 +421,11 @@ export async function optimizeDeckCandidates(
       deck: candidate.deck,
       evaluation: evaluations[index],
       matchups: matchups[index],
+      preferenceFit: calculatePreferenceFit(
+        candidate.recommendation,
+        preferenceCatalog,
+        options.weights,
+      ),
     }));
 
   evaluatedCandidates.sort(compareCandidates);

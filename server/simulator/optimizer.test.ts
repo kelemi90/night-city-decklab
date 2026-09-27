@@ -77,10 +77,12 @@ const catalog = [
     cost: 1,
     power: 1,
     ownedQuantity: 40,
+    marketCents: 100,
   },
-  ...legends.map((card) => ({
+  ...legends.map((card, index) => ({
     ...card,
     ownedQuantity: 1,
+    marketCents: 200 + index * 100,
   })),
 ];
 
@@ -463,4 +465,50 @@ describe("Cyberpunk TCG deck optimizer", () => {
       result.candidates[0].evaluation.candidateSecond.games,
     ).toBe(3);
   });
+
+  it("attaches preference-fit data to every optimized candidate", async () => {
+    const recommendations = [
+      createRecommendation("Deck A"),
+      createRecommendation("Deck B"),
+    ];
+
+    const result = await optimizeDeckCandidates(
+      recommendations,
+      catalog,
+      {
+        gamesPerSide: 2,
+        seed: 3000,
+        maxTurns: 200,
+        weights: {
+          speed: 70,
+          control: 20,
+          budget: 10,
+        },
+      },
+    );
+
+    for (const candidate of result.candidates) {
+      expect(candidate.preferenceFit).toEqual(
+        expect.objectContaining({
+          speed: expect.any(Number),
+          control: expect.any(Number),
+          budget: expect.any(Number),
+          weighted: expect.any(Number),
+        }),
+      );
+
+      expect(candidate.preferenceFit.speed).toBeGreaterThanOrEqual(0);
+      expect(candidate.preferenceFit.speed).toBeLessThanOrEqual(100);
+
+      expect(candidate.preferenceFit.control).toBeGreaterThanOrEqual(0);
+      expect(candidate.preferenceFit.control).toBeLessThanOrEqual(100);
+
+      expect(candidate.preferenceFit.budget).toBeGreaterThanOrEqual(0);
+      expect(candidate.preferenceFit.budget).toBeLessThanOrEqual(100);
+
+      expect(candidate.preferenceFit.weighted).toBeGreaterThanOrEqual(0);
+      expect(candidate.preferenceFit.weighted).toBeLessThanOrEqual(100);
+    }
+  });
+
 });
