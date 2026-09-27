@@ -221,6 +221,7 @@ describe("advisor.recommendMany router contract", () => {
       {
         gamesPerSide: 10,
         maxTurns: 200,
+        weights,
       },
     );
 

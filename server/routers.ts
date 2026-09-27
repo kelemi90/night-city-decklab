@@ -697,6 +697,7 @@ export const appRouter = router({
         const simulationOptions: OptimizeDeckOptions = {
           gamesPerSide: 10,
           maxTurns: 200,
+          weights: input.weights,
         };
 
         const optimized = await optimizeDeckCandidates(
