@@ -3260,6 +3260,25 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   </span>
                 </div>
 
+                <div className="advisor-preference-fit">
+                  <span>
+                    <b>{Math.round(result.preferenceFit.speed)}</b>
+                    <small>SPEED FIT</small>
+                  </span>
+                  <span>
+                    <b>{Math.round(result.preferenceFit.control)}</b>
+                    <small>CONTROL FIT</small>
+                  </span>
+                  <span>
+                    <b>{Math.round(result.preferenceFit.budget)}</b>
+                    <small>BUDGET FIT</small>
+                  </span>
+                  <span>
+                    <b>{Math.round(result.preferenceFit.weighted)}</b>
+                    <small>WEIGHTED FIT</small>
+                  </span>
+                </div>
+
                 <div className="advisor-simulation-profile">
                   <span>
                     <b>{result.simulation.averageAttacks.toFixed(1)}</b>
