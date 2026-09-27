@@ -3095,12 +3095,14 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
           <h3>
             {advisorResults.length
               ? `${advisorResults.length} strategies ready to compare`
-              : "Find the strongest deck in your binder"}
+              : "Generate and simulate decks from your binder"}
           </h3>
 
           <p>
-            Choose one or more goals. Each candidate uses only owned cards and
-            is checked against the official RAM and deck-building rules.
+            Choose one or more goals and tune the generation preferences.
+            Each candidate uses only owned cards and is checked against the
+            official RAM and deck-building rules. Candidates are then ranked
+            by their round-robin simulation results.
           </p>
 
           <div className="preset-library">
