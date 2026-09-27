@@ -3203,7 +3203,7 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                 <div className="advisor-result-head">
                   <div className="advisor-result-rank">
                     <span>#{index + 1}</span>
-                    {index === 0 && <span className="advisor-result-leader-label">LEADER</span>}
+                    {index === 0 && <span className="advisor-result-leader-label">SIMULATION LEADER</span>}
                     <span className="eyebrow">{result.strategy}</span>
                   </div>
 
