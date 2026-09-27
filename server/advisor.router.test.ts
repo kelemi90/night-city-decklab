@@ -136,6 +136,12 @@ function createEvaluatedCandidate(
           winRate,
           averageTurns: 18,
         },
+        preferenceFit: {
+          speed: 80,
+          control: 35,
+          budget: 64,
+          weighted: 62,
+        },
       },
     },
     matchups: [
@@ -149,6 +155,12 @@ function createEvaluatedCandidate(
         averageTurns: 18,
       },
     ],
+    preferenceFit: {
+      speed: 80,
+      control: 35,
+      budget: 65,
+      weighted: 62,
+    },
   };
 }
 
@@ -244,6 +256,12 @@ describe("advisor.recommendMany router contract", () => {
       expect(candidate.advisorConfig).toEqual({
         goals: expectedGoals,
         weights,
+      });
+      expect(candidate.preferenceFit).toEqual({
+        speed: 80,
+        control: 35,
+        budget: 65,
+        weighted: 62,
       });
       expect(candidate.edition).toBe("retail");
       expect(candidate.simulation).toBeDefined();

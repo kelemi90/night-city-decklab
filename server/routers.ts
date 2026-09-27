@@ -722,6 +722,7 @@ export const appRouter = router({
           },
           simulation: candidate.evaluation,
           matchups: candidate.matchups,
+          preferenceFit: candidate.preferenceFit,
         }));
       }),
   }),
