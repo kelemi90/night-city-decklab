@@ -2319,6 +2319,40 @@ body {
   margin-top: 0;
 }
 
+.advisor-simulation-profile {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.advisor-simulation-profile span {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  padding: 6px 5px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.02);
+  text-align: center;
+}
+
+.advisor-simulation-profile b {
+  color: #d7e7d8;
+  font-size: 10px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.advisor-simulation-profile small {
+  overflow: hidden;
+  color: rgba(255, 255, 255, 0.38);
+  font-size: 6px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .advisor-result button {
   margin-top: auto;
 }

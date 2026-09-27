@@ -3239,6 +3239,25 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   </span>
                 </div>
 
+                <div className="advisor-simulation-profile">
+                  <span>
+                    <b>{result.simulation.averageAttacks.toFixed(1)}</b>
+                    <small>ATTACKS</small>
+                  </span>
+                  <span>
+                    <b>{result.simulation.averageGigSteals.toFixed(1)}</b>
+                    <small>GIG STEALS</small>
+                  </span>
+                  <span>
+                    <b>{result.simulation.averageCardsPlayed.toFixed(1)}</b>
+                    <small>CARDS PLAYED</small>
+                  </span>
+                  <span>
+                    <b>{result.simulation.averageUnitsDefeated.toFixed(1)}</b>
+                    <small>UNITS DEFEATED</small>
+                  </span>
+                </div>
+
                 <div className="advisor-reasons">
                   {result.whyLegends.slice(0, 2).map((reason) => (
                     <span key={reason}>{reason}</span>
