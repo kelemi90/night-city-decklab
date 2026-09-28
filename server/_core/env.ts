@@ -11,6 +11,11 @@ export const ENV = {
   localAiApiKey: process.env.LOCAL_AI_API_KEY ?? "ollama",
   localAiModel: process.env.LOCAL_AI_MODEL ?? "",
 
+  aiAdvisorProvider: (process.env.AI_ADVISOR_PROVIDER ?? "ollama").toLowerCase(),
+  omniRouteBaseUrl: process.env.OMNIROUTE_BASE_URL ?? "",
+  omniRouteApiKey: process.env.OMNIROUTE_API_KEY ?? "",
+  omniRouteModel: process.env.OMNIROUTE_MODEL ?? "",
+
   cardmarketPriceGuideUrl:
     process.env.CARDMARKET_PRICE_GUIDE_URL ?? "",
   cardmarketProductCatalogUrl:

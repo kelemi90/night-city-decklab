@@ -216,11 +216,24 @@ const isLocalAiConfigured = () =>
   (ENV.localAiProvider === "ollama" || ENV.localAiProvider === "lmstudio") &&
   Boolean(ENV.localAiBaseUrl);
 
+const isOmniRouteConfigured = () =>
+  ENV.aiAdvisorProvider === "omniroute" &&
+  Boolean(ENV.omniRouteBaseUrl) &&
+  Boolean(ENV.omniRouteApiKey);
+
 const resolveLocalApiUrl = () =>
   `${ENV.localAiBaseUrl.replace(/\/$/, "")}/chat/completions`;
 
 const resolveLocalModel = (model?: string) =>
-  model || ENV.localAiModel || (ENV.localAiProvider === "ollama" ? "llama3.2:3b" : "local-model");
+  model ||
+  ENV.localAiModel ||
+  (ENV.localAiProvider === "ollama" ? "llama3.2:3b" : "local-model");
+
+const resolveOmniRouteApiUrl = () =>
+  `${ENV.omniRouteBaseUrl.replace(/\/$/, "")}/chat/completions`;
+
+const resolveOmniRouteModel = (model?: string) =>
+  model || ENV.omniRouteModel || "openrouter/google/gemini-3.5-flash";
 
 
 const normalizeResponseFormat = ({
@@ -356,16 +369,31 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     max_tokens,
   } = params;
 
-  const useLocalAi = isLocalAiConfigured();
-  if (!isLocalAiConfigured()) {
-    throw new Error("Local AI is not configured");
+  const provider = ENV.aiAdvisorProvider;
+
+  if (provider === "ollama" || provider === "lmstudio") {
+    if (!isLocalAiConfigured()) {
+      throw new Error("Local AI is not configured");
+    }
+  } else if (provider === "omniroute") {
+    if (!isOmniRouteConfigured()) {
+      throw new Error("OmniRoute is not configured");
+    }
+  } else {
+    throw new Error(
+      `Unsupported AI advisor provider: ${provider || "(empty)"}`
+    );
   }
 
   const payload: Record<string, unknown> = {
     messages: messages.map(normalizeMessage),
   };
 
-  payload.model = resolveLocalModel(model);
+  if (provider === "omniroute") {
+    payload.model = resolveOmniRouteModel(model);
+  } else {
+    payload.model = resolveLocalModel(model);
+  }
 
   if (tools && tools.length > 0) {
     payload.tools = tools;
@@ -375,11 +403,13 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     toolChoice || tool_choice,
     tools
   );
+
   if (normalizedToolChoice) {
     payload.tool_choice = normalizedToolChoice;
   }
 
   const resolvedMaxTokens = max_tokens ?? maxTokens;
+
   if (typeof resolvedMaxTokens === "number") {
     payload.max_tokens = resolvedMaxTokens;
   }
@@ -387,6 +417,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   if (thinking) {
     payload.thinking = thinking;
   }
+
   if (reasoning) {
     payload.reasoning = reasoning;
   }
@@ -402,17 +433,29 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     payload.response_format = normalizedResponseFormat;
   }
 
-  const response = await fetchWithBackoff(resolveLocalApiUrl(), {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      authorization: `Bearer ${ENV.localAiApiKey}`,
-    },
-    body: JSON.stringify(payload),
-  });
+  const isOmniRoute = provider === "omniroute";
+
+  const response = await fetchWithBackoff(
+    isOmniRoute
+      ? resolveOmniRouteApiUrl()
+      : resolveLocalApiUrl(),
+    {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        authorization: `Bearer ${
+          isOmniRoute
+            ? ENV.omniRouteApiKey
+            : ENV.localAiApiKey
+        }`,
+      },
+      body: JSON.stringify(payload),
+    }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();
+
     throw new Error(
       `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
     );
@@ -422,18 +465,31 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 }
 
 export function getAiProviderStatus() {
+  if (ENV.aiAdvisorProvider === "omniroute") {
+    return {
+      provider: "OmniRoute",
+      configured: isOmniRouteConfigured(),
+      model: resolveOmniRouteModel(),
+      baseUrl: ENV.omniRouteBaseUrl,
+    };
+  }
+
   if (isLocalAiConfigured()) {
     return {
-      provider: ENV.localAiProvider === "lmstudio" ? "LM Studio" : "Ollama",
+      provider:
+        ENV.localAiProvider === "lmstudio"
+          ? "LM Studio"
+          : "Ollama",
       configured: true,
       model: resolveLocalModel(),
       baseUrl: ENV.localAiBaseUrl,
     };
   }
+
   return {
-  provider: "Local AI",
-  configured: false,
-  model: "",
-  baseUrl: "",
-};
+    provider: "Local AI",
+    configured: false,
+    model: "",
+    baseUrl: "",
+  };
 }
