@@ -1,40 +1,10 @@
 import { createWorker, type Worker } from "tesseract.js";
 import type { CatalogCard } from "@shared/deckRules";
+import type { OcrMode } from "./cardOcrModes";
+
+export { OCR_MODES } from "./cardOcrModes";
 
 let workerPromise: Promise<Worker> | undefined;
-
-export type OcrMode =
-  | "balanced"
-  | "highContrast"
-  | "lowLight"
-  | "sharpened";
-
-export const OCR_MODES: Array<{
-  id: OcrMode;
-  label: string;
-  detail: string;
-}> = [
-  {
-    id: "balanced",
-    label: "Balanced",
-    detail: "General-purpose correction",
-  },
-  {
-    id: "highContrast",
-    label: "High contrast",
-    detail: "For glare and busy backgrounds",
-  },
-  {
-    id: "lowLight",
-    label: "Low light",
-    detail: "Brightens dark or shadowed cards",
-  },
-  {
-    id: "sharpened",
-    label: "Sharpened",
-    detail: "For soft or slightly blurry text",
-  },
-];
 
 function getWorker() {
   workerPromise ??= createWorker("eng", 1, {
@@ -94,10 +64,10 @@ export async function assessOcrImageQuality(
     Math.min(
       1,
       maxDimension /
-        Math.max(
-          image.naturalWidth,
-          image.naturalHeight,
-        ),
+      Math.max(
+        image.naturalWidth,
+        image.naturalHeight,
+      ),
     );
 
   const canvas =
@@ -228,10 +198,10 @@ export async function assessOcrImageQuality(
   const variance =
     count > 0
       ? Math.max(
-          0,
-          sumSquared / count -
-            mean * mean,
-        )
+        0,
+        sumSquared / count -
+        mean * mean,
+      )
       : 0;
 
   /*
@@ -501,7 +471,7 @@ async function prepareProcessedOcrCanvas(
             right -
             up -
             down) *
-            0.7;
+          0.7;
       }
 
       const output = clamp(value);
@@ -660,7 +630,7 @@ function levenshteinDistance(
     ) {
       const substitutionCost =
         left[row - 1] ===
-        right[column - 1]
+          right[column - 1]
           ? 0
           : 1;
 
@@ -669,7 +639,7 @@ function levenshteinDistance(
           current[column - 1] + 1,
           previous[column] + 1,
           previous[column - 1] +
-            substitutionCost,
+          substitutionCost,
         );
     }
 
@@ -699,10 +669,10 @@ function similarity(
   return (
     1 -
     distance /
-      Math.max(
-        left.length,
-        right.length,
-      )
+    Math.max(
+      left.length,
+      right.length,
+    )
   );
 }
 
@@ -951,11 +921,11 @@ export function matchOcrText(
 
   let best:
     | {
-        card: CatalogCard;
-        score: number;
-        matchedName: boolean;
-        matchedSubtitle: boolean;
-      }
+      card: CatalogCard;
+      score: number;
+      matchedName: boolean;
+      matchedSubtitle: boolean;
+    }
     | undefined;
 
   for (const card of cards) {
@@ -1006,94 +976,44 @@ export function matchOcrText(
     const nameOverlap =
       nameWords.length > 0
         ? matchedNameWords.length /
-          nameWords.length
+        nameWords.length
         : 0;
 
     const subtitleOverlap =
       subtitleWords.length > 0
         ? matchedSubtitleWords.length /
-          subtitleWords.length
+        subtitleWords.length
         : 0;
 
-      /*
-       * Duplicate primary name.
-       *
-       * OCR can make small errors in the card name,
-       * so use fuzzy word evidence instead of requiring
-       * an exact name match.
-       *
-       * The subtitle is still required to distinguish
-       * cards that share the same primary name.
-       */
-      if (duplicateName) {
-        if (!subtitle) {
-          continue;
-        }
+    /*
+     * Duplicate primary name.
+     *
+     * OCR can make small errors in the card name,
+     * so use fuzzy word evidence instead of requiring
+     * an exact name match.
+     *
+     * The subtitle is still required to distinguish
+     * cards that share the same primary name.
+     */
+    if (duplicateName) {
+      if (!subtitle) {
+        continue;
+      }
 
-        const nameEvidence =
-          wordEvidence(
-            haystack,
-            name,
-          );
+      const nameEvidence =
+        wordEvidence(
+          haystack,
+          name,
+        );
 
-        if (nameEvidence < 0.45) {
-          continue;
-        }
+      if (nameEvidence < 0.45) {
+        continue;
+      }
 
-        if (subtitleExact) {
-          const score =
-            0.88 +
-            nameEvidence * 0.12;
-
-          if (
-            !best ||
-            score > best.score
-          ) {
-            best = {
-              card,
-              score,
-              matchedName: true,
-              matchedSubtitle: true,
-            };
-          }
-
-          continue;
-        }
-
-        const subtitleEvidence =
-          wordEvidence(
-            haystack,
-            subtitle,
-          );
-
-        const subtitleFuzzy =
-          fuzzyPhraseMatch(
-            haystack,
-            subtitle,
-          );
-
-        /*
-         * Require meaningful subtitle evidence.
-         * This keeps duplicate-name cards from being
-         * selected from the name alone.
-         */
-        if (
-          subtitleEvidence < 0.25 &&
-          subtitleFuzzy < 0.72
-        ) {
-          continue;
-        }
-
-        const subtitleScore =
-          Math.max(
-            subtitleEvidence,
-            subtitleFuzzy * 0.65,
-          );
-
+      if (subtitleExact) {
         const score =
-          0.72 +
-          nameEvidence * 0.10 +
-          subtitleScore * 0.18;
+          0.88 +
+          nameEvidence * 0.12;
 
         if (
           !best ||
@@ -1109,6 +1029,56 @@ export function matchOcrText(
 
         continue;
       }
+
+      const subtitleEvidence =
+        wordEvidence(
+          haystack,
+          subtitle,
+        );
+
+      const subtitleFuzzy =
+        fuzzyPhraseMatch(
+          haystack,
+          subtitle,
+        );
+
+      /*
+       * Require meaningful subtitle evidence.
+       * This keeps duplicate-name cards from being
+       * selected from the name alone.
+       */
+      if (
+        subtitleEvidence < 0.25 &&
+        subtitleFuzzy < 0.72
+      ) {
+        continue;
+      }
+
+      const subtitleScore =
+        Math.max(
+          subtitleEvidence,
+          subtitleFuzzy * 0.65,
+        );
+
+      const score =
+        0.72 +
+        nameEvidence * 0.10 +
+        subtitleScore * 0.18;
+
+      if (
+        !best ||
+        score > best.score
+      ) {
+        best = {
+          card,
+          score,
+          matchedName: true,
+          matchedSubtitle: true,
+        };
+      }
+
+      continue;
+    }
 
     /*
      * Unique primary name.
@@ -1389,7 +1359,7 @@ export async function recognizeCardName(
     console.error(
       "[OCR] error keys:",
       error &&
-      typeof error === "object"
+        typeof error === "object"
         ? Object.keys(error)
         : [],
     );

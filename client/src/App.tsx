@@ -1,11 +1,13 @@
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import NotFound from "@/pages/NotFound";
+import { lazy, Suspense } from "react";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
-import PublicDeckShare from "./pages/PublicDeckShare";
+
+const Home = lazy(() => import("./pages/Home"));
+const PublicDeckShare = lazy(() => import("./pages/PublicDeckShare"));
+const NotFound = lazy(() => import("@/pages/NotFound"));
 
 function Router() {
   return (
@@ -24,7 +26,9 @@ function App() {
       <ThemeProvider defaultTheme="dark">
         <TooltipProvider>
           <Toaster />
-          <Router />
+          <Suspense fallback={<div role="status">Loading…</div>}>
+            <Router />
+          </Suspense>
         </TooltipProvider>
       </ThemeProvider>
     </ErrorBoundary>

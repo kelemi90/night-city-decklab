@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const { invokeLLM } = vi.hoisted(() => ({
   invokeLLM: vi.fn(),
@@ -7,6 +7,10 @@ const { invokeLLM } = vi.hoisted(() => ({
 vi.mock("./_core/llm", () => ({
   invokeLLM,
 }));
+
+beforeEach(() => {
+  invokeLLM.mockReset();
+});
 
 import {
   deduplicateRecommendations,
@@ -40,30 +44,27 @@ describe("AI deck advisor preference payload", () => {
             content: JSON.stringify({
               name: "Preference test deck",
               strategy: "weighted test",
-              summary: "test",
-              whyLegends: ["test", "test", "test"],
               legends: [
-                { cardId: 1, quantity: 1 },
-                { cardId: 2, quantity: 1 },
-                { cardId: 3, quantity: 1 },
+                { cardId: 1 },
+                { cardId: 2 },
+                { cardId: 3 },
               ],
-              main: [
-                { cardId: 8, quantity: 3 },
-                { cardId: 9, quantity: 3 },
-                { cardId: 10, quantity: 3 },
-                { cardId: 11, quantity: 3 },
-                { cardId: 12, quantity: 3 },
-                { cardId: 13, quantity: 3 },
-                { cardId: 14, quantity: 3 },
-                { cardId: 15, quantity: 3 },
-                { cardId: 16, quantity: 3 },
-                { cardId: 17, quantity: 3 },
-                { cardId: 18, quantity: 3 },
-                { cardId: 19, quantity: 3 },
-                { cardId: 20, quantity: 2 },
-                { cardId: 21, quantity: 2 },
+              mainCandidates: [
+                { cardId: 8 },
+                { cardId: 9 },
+                { cardId: 10 },
+                { cardId: 11 },
+                { cardId: 12 },
+                { cardId: 13 },
+                { cardId: 14 },
+                { cardId: 15 },
+                { cardId: 16 },
+                { cardId: 17 },
+                { cardId: 18 },
+                { cardId: 19 },
+                { cardId: 20 },
+                { cardId: 21 },
               ],
-              upgradeSuggestions: [],
             }),
           },
         }],
@@ -94,6 +95,7 @@ describe("AI deck advisor preference payload", () => {
       );
 
       expect(result.strategy).toBe("weighted test");
+      expect(result.totalMain).toBe(40);
       expect(invokeLLM).toHaveBeenCalledTimes(1);
 
       const request = invokeLLM.mock.calls.at(-1)?.[0];
@@ -102,74 +104,172 @@ describe("AI deck advisor preference payload", () => {
       );
 
       expect(userMessage?.content).toContain('"marketCents"');
-      expect(userMessage?.content).toContain('"ownedQuantity":1');
+      expect(userMessage?.content).toContain(
+        "OWNED LEGENDS — choose exactly 3 unique cards from this list:",
+      );
+      expect(userMessage?.content).toContain(
+        "OWNED MAIN-DECK CARDS — rank preferred cards ONLY from this list:",
+      );
+      expect(userMessage?.content).toContain(
+        "Only cards listed under OWNED LEGENDS may appear in the Legends list.",
+      );
+      expect(userMessage?.content).toContain(
+        "Only cards listed under OWNED MAIN-DECK CARDS may appear in mainCandidates.",
+      );
+      expect(userMessage?.content).toContain(
+        '"ownedQuantity":1',
+      );
       expect(userMessage?.content).toContain(
         `speed=${speed}, control=${control}, budget=${budget}`,
       );
-      expect(userMessage?.content).toContain("high-market-value");
-      expect(userMessage?.content).toContain("lower market value");
+      expect(userMessage?.content).toContain("higher-value cards");
+      expect(userMessage?.content).toContain("lower-value cards");
+      expect(userMessage?.content).toContain(
+        "Do NOT choose quantities.",
+      );
+      expect(userMessage?.content).toContain(
+        "The application will determine quantities from ownedQuantity.",
+      );
+      expect(userMessage?.content).toContain(
+        "The application will enforce the 40–50 card limit and maximum 3 copies.",
+      );
     },
   );
 });
 
-describe("AI deck advisor guardrails", () => {
-  it("normalizes collection rows to official catalog cards", () => {
-    expect(owned).toHaveLength(4);
-    expect(owned.find((card) => card.id === 1)?.name).toBe("V");
-    expect(owned.find((card) => card.id === 8)?.ownedQuantity).toBe(3);
+describe("AI deck advisor deterministic deck builder", () => {
+  const fullOwnedCollection = ownedCatalogRows([
+    { cardId: 1, quantity: 1 },
+    { cardId: 2, quantity: 1 },
+    { cardId: 3, quantity: 1 },
+    { cardId: 8, quantity: 3 },
+    { cardId: 9, quantity: 3 },
+    { cardId: 10, quantity: 3 },
+    { cardId: 11, quantity: 3 },
+    { cardId: 12, quantity: 3 },
+    { cardId: 13, quantity: 3 },
+    { cardId: 14, quantity: 3 },
+    { cardId: 15, quantity: 3 },
+    { cardId: 16, quantity: 3 },
+    { cardId: 17, quantity: 3 },
+    { cardId: 18, quantity: 3 },
+    { cardId: 19, quantity: 3 },
+    { cardId: 20, quantity: 2 },
+    { cardId: 21, quantity: 2 },
+  ]);
+
+  it("uses AI candidate order but derives legal quantities from the collection", async () => {
+    invokeLLM.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            name: "Deterministic build",
+            strategy: "aggro",
+            legends: [
+              { cardId: 1 },
+              { cardId: 2 },
+              { cardId: 3 },
+            ],
+            mainCandidates: [
+              { cardId: 8 },
+              { cardId: 9 },
+              { cardId: 10 },
+              { cardId: 11 },
+              { cardId: 12 },
+              { cardId: 13 },
+              { cardId: 14 },
+              { cardId: 15 },
+              { cardId: 16 },
+              { cardId: 17 },
+              { cardId: 18 },
+              { cardId: 19 },
+              { cardId: 20 },
+              { cardId: 21 },
+            ],
+          }),
+        },
+      }],
+    });
+
+    const result = await recommendDeck(
+      fullOwnedCollection,
+      "aggro",
+      { speed: 85, control: 25, budget: 10 },
+      "ollama",
+    );
+
+    expect(result.totalMain).toBe(40);
+    expect(result.legends.map((line) => line.cardId)).toEqual([1, 2, 3]);
+    expect(result.main.map((line) => line.cardId)).toEqual([
+      8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21,
+    ]);
+
+    expect(result.main.find((line) => line.cardId === 8)?.quantity).toBe(3);
+    expect(result.main.find((line) => line.cardId === 20)?.quantity).toBe(2);
+    expect(result.main.find((line) => line.cardId === 21)?.quantity).toBe(2);
+
+    expect(
+      result.main.every((line) => line.quantity >= 1 && line.quantity <= 3),
+    ).toBe(true);
+
+    expect(
+      result.main.every((line) => {
+        const ownedCard = fullOwnedCollection.find(
+          (card) => card.id === line.cardId,
+        );
+        return ownedCard !== undefined &&
+          line.quantity <= ownedCard.ownedQuantity;
+      }),
+    ).toBe(true);
+
+    expect(invokeLLM).toHaveBeenCalledTimes(1);
+    expect(invokeLLM.mock.calls[0]?.[0].provider).toBe("ollama");
   });
 
-  it("rejects recommendations that are not legal or exceed owned quantities", () => {
-    const result = validateRecommendation({
-      name: "Invalid test deck",
-      strategy: "test",
-      summary: "test",
-      whyLegends: [],
-      legends: [
-        { cardId: 1, quantity: 1 },
-        { cardId: 2, quantity: 1 },
-        { cardId: 3, quantity: 1 },
-      ],
-      main: [{ cardId: 8, quantity: 4 }],
-      upgradeSuggestions: [],
-      totalMain: 4,
-    }, owned);
+  it("fills the deck from owned cards when the AI provides too few candidates", async () => {
+    invokeLLM.mockResolvedValue({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            name: "Fallback build",
+            strategy: "midrange",
+            legends: [
+              { cardId: 1 },
+              { cardId: 2 },
+              { cardId: 3 },
+            ],
+            mainCandidates: [
+              { cardId: 8 },
+            ],
+          }),
+        },
+      }],
+    });
 
-    expect(result.legal).toBe(false);
+    const result = await recommendDeck(
+      fullOwnedCollection,
+      "midrange",
+      { speed: 50, control: 50, budget: 50 },
+      "lmstudio",
+    );
+
+    expect(result.totalMain).toBe(40);
+    expect(result.main[0]).toEqual({
+      cardId: 8,
+      quantity: 3,
+    });
+    expect(result.main.length).toBeGreaterThan(1);
+
     expect(
-      result.errors.some(
-        (error) =>
-          error.includes("more copies") ||
-          error.includes("between 40 and 50"),
-      ),
+      result.main.every((line) => line.cardId !== 1 && line.cardId !== 2 && line.cardId !== 3),
     ).toBe(true);
-  });
 
-  it("rejects duplicate main-card lines from an AI candidate", () => {
-    const result = validateRecommendation({
-      name: "Duplicate test deck",
-      strategy: "aggro",
-      summary: "test",
-      whyLegends: [],
-      legends: [
-        { cardId: 1, quantity: 1 },
-        { cardId: 2, quantity: 1 },
-        { cardId: 3, quantity: 1 },
-      ],
-      main: [
-        { cardId: 8, quantity: 2 },
-        { cardId: 8, quantity: 1 },
-      ],
-      upgradeSuggestions: [],
-      totalMain: 3,
-    }, owned);
-
-    expect(result.legal).toBe(false);
     expect(
-      result.errors.some((error) =>
-        error.includes("multiple main-deck lines"),
-      ),
+      result.main.every((line) => line.quantity >= 1 && line.quantity <= 3),
     ).toBe(true);
+
+    expect(invokeLLM).toHaveBeenCalledTimes(1);
+    expect(invokeLLM.mock.calls[0]?.[0].provider).toBe("lmstudio");
   });
 });
 

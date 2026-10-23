@@ -224,6 +224,7 @@ describe("advisor.recommendMany router contract", () => {
       expect.anything(),
       expectedGoals,
       weights,
+      undefined,
     );
 
     expect(optimizeDeckCandidates).toHaveBeenCalledTimes(1);

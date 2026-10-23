@@ -57,6 +57,7 @@ export type ToolChoice =
 
 export type InvokeParams = {
   messages: Message[];
+  provider?: "ollama" | "lmstudio" | "omniroute";
   tools?: Tool[];
   toolChoice?: ToolChoice;
   tool_choice?: ToolChoice;
@@ -305,13 +306,17 @@ const computeBackoffDelay = (
   attempt: number,
   retryAfterMs?: number
 ): number => {
+  if (retryAfterMs !== undefined) {
+    return retryAfterMs;
+  }
+
   const cap = Math.min(RETRY_BASE_DELAY_MS * 2 ** attempt, RETRY_MAX_DELAY_MS);
-  const jittered = cap / 2 + Math.random() * (cap / 2);
-  return Math.min(Math.max(jittered, retryAfterMs ?? 0), RETRY_MAX_DELAY_MS);
+  return cap / 2 + Math.random() * (cap / 2);
 };
 
-// Retries non-2xx responses and network errors with exponential backoff, then
-// returns the final Response so callers keep their existing error handling.
+// Retry transient server errors and network failures. Client errors such as
+// 429 are returned immediately so callers can surface the provider's message
+// instead of making an interactive request wait through several long retries.
 const fetchWithBackoff = async (
   url: string,
   init: FetchInit
@@ -321,22 +326,67 @@ const fetchWithBackoff = async (
   for (let attempt = 0; attempt <= RETRY_MAX_RETRIES; attempt++) {
     try {
       const response = await fetch(url, init);
-      if (response.ok || attempt === RETRY_MAX_RETRIES) {
+
+      const isRetryableStatus =
+        response.status === 408 || response.status >= 500;
+
+      if (
+        response.ok ||
+        response.status === 429 ||
+        !isRetryableStatus ||
+        attempt === RETRY_MAX_RETRIES
+      ) {
         return response;
       }
 
-      const retryAfterMs = parseRetryAfter(
+      let retryAfterMs = parseRetryAfter(
         response.headers.get("retry-after")
       );
+
+      if (response.status === 429) {
+        try {
+          const retryBody = await response.clone().json() as {
+            error?: {
+              reset_seconds?: number;
+              retry_after?: string;
+            };
+          };
+
+          const resetSeconds = retryBody.error?.reset_seconds;
+
+          if (
+            typeof resetSeconds === "number" &&
+            Number.isFinite(resetSeconds) &&
+            resetSeconds > 0
+          ) {
+            retryAfterMs = resetSeconds * 1000;
+          } else if (retryBody.error?.retry_after) {
+            const bodyRetryAfter = parseRetryAfter(
+              retryBody.error.retry_after
+            );
+
+            if (bodyRetryAfter !== undefined) {
+              retryAfterMs = bodyRetryAfter;
+            }
+          }
+        } catch {
+          // Fall back to the Retry-After header or exponential backoff.
+        }
+      }
+
       try {
         await response.body?.cancel();
       } catch {
         // Body already settled; nothing to clean up.
       }
+
+      const delayMs = computeBackoffDelay(attempt, retryAfterMs);
+
       console.warn(
-        `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after status ${response.status}`
+        `LLM request retry ${attempt + 1}/${RETRY_MAX_RETRIES} after status ${response.status} in ${Math.ceil(delayMs / 1000)}s`
       );
-      await sleep(computeBackoffDelay(attempt, retryAfterMs));
+
+      await sleep(delayMs);
     } catch (error) {
       lastError = error;
       if (attempt === RETRY_MAX_RETRIES) throw error;
@@ -355,6 +405,7 @@ const fetchWithBackoff = async (
 export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   const {
     messages,
+    provider: requestedProvider,
     tools,
     toolChoice,
     tool_choice,
@@ -369,7 +420,7 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
     max_tokens,
   } = params;
 
-  const provider = ENV.aiAdvisorProvider;
+  const provider = requestedProvider ?? ENV.aiAdvisorProvider;
 
   if (provider === "ollama" || provider === "lmstudio") {
     if (!isLocalAiConfigured()) {
@@ -435,6 +486,16 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
 
   const isOmniRoute = provider === "omniroute";
 
+  console.log(
+    "[llm] provider request:",
+    JSON.stringify({
+      provider,
+      model: payload.model,
+      max_tokens: payload.max_tokens,
+      response_format: payload.response_format,
+    }),
+  );
+
   const response = await fetchWithBackoff(
     isOmniRoute
       ? resolveOmniRouteApiUrl()
@@ -454,14 +515,27 @@ export async function invokeLLM(params: InvokeParams): Promise<InvokeResult> {
   );
 
   if (!response.ok) {
-    const errorText = await response.text();
+    const errorText = (await response.text())
+      .slice(0, 1200)
+      .replace(/(bearer\\s+)[^\\s"',}]+/gi, "$1[REDACTED]")
+      .replace(
+        /((?:api[_-]?key|access[_-]?token|authorization)\\s*[:=]\\s*)["']?[^"',\\s}]+/gi,
+        "$1[REDACTED]"
+      );
 
     throw new Error(
       `LLM invoke failed: ${response.status} ${response.statusText} – ${errorText}`
     );
   }
 
-  return (await response.json()) as InvokeResult;
+  const responseBody = await response.json();
+
+  console.log(
+    "[llm] raw provider response:",
+    JSON.stringify(responseBody, null, 2),
+  );
+
+  return responseBody as InvokeResult;
 }
 
 export function getAiProviderStatus() {

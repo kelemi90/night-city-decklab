@@ -65,6 +65,7 @@ import {
   type OptimizeDeckOptions,
 } from "./simulator/optimizer";
 import { getAiProviderStatus } from "./_core/llm";
+import { askRulesJudge } from "./rulesJudge";
 
 const cardId = z.number().int().positive();
 
@@ -642,6 +643,17 @@ export const appRouter = router({
       ),
   }),
 
+  rulesJudge: router({
+    ask: protectedProcedure
+      .input(
+        z.object({
+          question: z.string().trim().min(1).max(1200),
+          provider: z.enum(["ollama", "lmstudio", "omniroute"]).optional(),
+        }),
+      )
+      .mutation(({ input }) => askRulesJudge(input)),
+  }),
+
   advisor: router({
     recommend: protectedProcedure.mutation(async ({ ctx }) => {
       const collection = await getCollection(ctx.user.id);
@@ -679,6 +691,7 @@ export const appRouter = router({
             budget: z.number().int().min(0).max(100),
           }),
           edition: z.enum(["retail", "beta"]),
+          provider: z.enum(["ollama", "lmstudio", "omniroute"]).optional(),
         }),
       )
       .mutation(async ({ ctx, input }) => {
@@ -692,6 +705,7 @@ export const appRouter = router({
           ownedCatalogRows(collection, editionCards),
           Array.from(new Set(input.goals)),
           input.weights,
+          input.provider,
         );
 
         const simulationOptions: OptimizeDeckOptions = {
@@ -719,6 +733,7 @@ export const appRouter = router({
           advisorConfig: {
             goals: Array.from(new Set(input.goals)),
             weights: input.weights,
+            provider: input.provider,
           },
           simulation: candidate.evaluation,
           matchups: candidate.matchups,

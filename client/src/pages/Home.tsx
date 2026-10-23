@@ -5,23 +5,19 @@ import { trpc } from "@/lib/trpc";
 import {
   rectifyDataUrl,
 } from "@/lib/cardVision";
-import {
-  OCR_MODES,
-  assessOcrImageQuality,
-  recognizeCardName,
-  type OcrMode,
-} from "@/lib/cardOcr";
+import { OCR_MODES, type OcrMode } from "@/lib/cardOcrModes";
 import { formatDeckExport } from "@/lib/deckExport";
 import { parseCollectionCsv } from "@/lib/collectionCsv";
 import { CATALOG_CARDS, COLOR_META, type CardColor, type CatalogCard, validateDeck } from "@shared/deckRules";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Activity as ActivityIcon, Camera, Check, ChevronLeft, ChevronRight, CircleDollarSign, Clipboard, Crosshair, Database, Download, ExternalLink, FolderKanban, Grid2X2, LayoutDashboard, LogIn, Minus, Package, Plus, RefreshCw, ScanLine, Share2, ShieldCheck, Sparkles, Upload, X, Zap } from "lucide-react";
+import { Activity as ActivityIcon, BookOpen, Camera, Check, ChevronLeft, ChevronRight, CircleDollarSign, Clipboard, Crosshair, Database, Download, ExternalLink, FolderKanban, Grid2X2, LayoutDashboard, LogIn, Minus, Package, Plus, RefreshCw, ScanLine, Share2, ShieldCheck, Sparkles, Upload, X, Zap, Loader2 } from "lucide-react";
 import { getCardArtUrl } from "@/lib/cardArt";
 import { loadCardDetails, formatRulesText, type CardDetails } from "@/lib/cardDetails";
 
-type View = "overview" | "scanner" | "collection" | "decks" | "prices" | "activity";
+type View = "overview" | "scanner" | "collection" | "decks" | "prices" | "activity" | "rules";
 type StrategyGoal = "aggro" | "control" | "midrange" | "tempo";
+type CardAnchor = Pick<DOMRect, "top" | "left" | "right" | "bottom">;
 
 const STRATEGY_GOALS: Array<{ id: StrategyGoal; label: string; detail: string }> = [
   { id: "aggro", label: "Aggro", detail: "Fast pressure" },
@@ -50,6 +46,7 @@ const nav = [
   { id: "decks" as View, label: "Deck lab", icon: FolderKanban },
   { id: "prices" as View, label: "Price watch", icon: CircleDollarSign },
   { id: "activity" as View, label: "Recent activity", icon: ActivityIcon },
+  { id: "rules" as View, label: "Rules Judge", icon: BookOpen },
 ];
 
 function money(cents: number | null | undefined = 0) {
@@ -72,7 +69,7 @@ function MiniCard({
   quantity?: number;
   onAdd?: () => void;
   onRemove?: () => void;
-  onOpen?: () => void;
+  onOpen?: (anchor: CardAnchor) => void;
 }) {
   const [details, setDetails] = useState<CardDetails>();
 
@@ -103,13 +100,13 @@ function MiniCard({
         ...cardTone(card.color),
         cursor: onOpen ? "pointer" : undefined,
       }}
-      onClick={onOpen}
+      onClick={(event) => onOpen?.(event.currentTarget.getBoundingClientRect())}
       role={onOpen ? "button" : undefined}
       tabIndex={onOpen ? 0 : undefined}
       onKeyDown={(event) => {
         if (onOpen && (event.key === "Enter" || event.key === " ")) {
           event.preventDefault();
-          onOpen();
+          onOpen(event.currentTarget.getBoundingClientRect());
         }
       }}
     >
@@ -188,6 +185,10 @@ function MiniCard({
           {card.power !== undefined && (
             <span>{card.power} PWR</span>
           )}
+
+          <span>
+            Market {card.marketCents > 0 ? money(card.marketCents) : "Unavailable"}
+          </span>
         </div>
 
         {quantity !== undefined && (
@@ -231,6 +232,7 @@ function CollectionCardDialog({
   scans,
   quantity,
   open,
+  anchor,
   onClose,
 }: {
   card: CatalogCard | null;
@@ -244,6 +246,7 @@ function CollectionCardDialog({
   }>;
   quantity: number;
   open: boolean;
+  anchor: CardAnchor | null;
   onClose: () => void;
 }) {
   const [scanSide, setScanSide] = useState<"front" | "back">("front");
@@ -254,6 +257,8 @@ function CollectionCardDialog({
   const [correctionCardId, setCorrectionCardId] = useState<number | null>(null);
   const [isChangingVersion, setIsChangingVersion] = useState(false);
   const [versionCardId, setVersionCardId] = useState<number | null>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const [panelPosition, setPanelPosition] = useState({ top: 16, left: 16 });
   const utils = trpc.useUtils();
 
   const correctScan = trpc.scans.correct.useMutation({
@@ -299,6 +304,38 @@ function CollectionCardDialog({
       cancelled = true;
     };
   }, [open, card?.id]);
+
+  useLayoutEffect(() => {
+    if (!open || !card || !anchor || !panelRef.current) {
+      return;
+    }
+
+    const positionPanel = () => {
+      const panel = panelRef.current;
+      if (!panel) {
+        return;
+      }
+
+      const margin = 16;
+      const bounds = panel.getBoundingClientRect();
+
+      setPanelPosition({
+        left: Math.max(
+          margin,
+          Math.min(anchor.left, window.innerWidth - bounds.width - margin),
+        ),
+        top: Math.max(
+          margin,
+          Math.min(anchor.top, window.innerHeight - bounds.height - margin),
+        ),
+      });
+    };
+
+    positionPanel();
+    window.addEventListener("resize", positionPanel);
+
+    return () => window.removeEventListener("resize", positionPanel);
+  }, [open, card?.id, anchor]);
 
   const correctionMatches = useMemo(() => {
     const query = correctionQuery.trim().toLowerCase();
@@ -402,19 +439,19 @@ function CollectionCardDialog({
         position: "fixed",
         inset: 0,
         zIndex: 1000,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: 20,
+        display: "block",
         background: "rgba(3, 5, 9, 0.82)",
         backdropFilter: "blur(8px)",
       }}
     >
       <div
+        ref={panelRef}
         style={{
-          position: "relative",
-          width: "min(1080px, 100%)",
-          maxHeight: "calc(100vh - 40px)",
+          position: "absolute",
+          top: panelPosition.top,
+          left: panelPosition.left,
+          width: "min(1080px, calc(100vw - 32px))",
+          maxHeight: "calc(100vh - 32px)",
           overflowY: "auto",
           borderRadius: 18,
           border: `1px solid ${accent}55`,
@@ -1602,25 +1639,23 @@ function CameraPanel({ cards, isAuthenticated, onAuthRequired }: { cards: Catalo
   const filtered = cards.filter((card) => `${card.name} ${card.subtitle ?? ""}`.toLowerCase().includes(query.toLowerCase())).slice(0, 6);
 
   async function recognizeFront(dataUrl: string, mode: OcrMode = ocrMode) {
-    const quality = await assessOcrImageQuality(dataUrl);
-
-    console.log("[OCR] Image quality:", quality);
-
-    if (!quality.usable) {
-      setOcrText("");
-      setOcrConfidence(undefined);
-      setOcrState("review");
-
-      toast.warning(
-        `Image is too blurry for reliable OCR (sharpness ${quality.sharpness}). Hold the card steady and capture again.`,
-      );
-
-      return;
-    }
     setOcrState("reading");
     setOcrText("");
     setOcrConfidence(undefined);
     try {
+      const { assessOcrImageQuality, recognizeCardName } = await import("@/lib/cardOcr");
+      const quality = await assessOcrImageQuality(dataUrl);
+
+      console.log("[OCR] Image quality:", quality);
+
+      if (!quality.usable) {
+        setOcrState("review");
+        toast.warning(
+          `Image is too blurry for reliable OCR (sharpness ${quality.sharpness}). Hold the card steady and capture again.`,
+        );
+        return;
+      }
+
       const result = await recognizeCardName(dataUrl, cards, mode);
       setOcrText(result.text);
       if (result.match) {
@@ -2014,6 +2049,8 @@ function CollectionView({
 
   const [selectedCollectionCardId, setSelectedCollectionCardId] =
     useState<number | null>(null);
+  const [selectedCardAnchor, setSelectedCardAnchor] =
+    useState<CardAnchor | null>(null);
 
   const selectedCollectionCard = selectedCollectionCardId
     ? catalogById.get(selectedCollectionCardId) ?? null
@@ -2166,7 +2203,10 @@ function CollectionView({
               key={card.id}
               card={card}
               quantity={quantities[card.id] ?? 0}
-              onOpen={() => setSelectedCollectionCardId(card.id)}
+              onOpen={(anchor) => {
+                setSelectedCardAnchor(anchor);
+                setSelectedCollectionCardId(card.id);
+              }}
               onAdd={() => change(card, 1)}
               onRemove={() => change(card, -1)}
             />
@@ -2184,6 +2224,7 @@ function CollectionView({
             : 0
         }
         open={selectedCollectionCard !== null}
+        anchor={selectedCardAnchor}
         onClose={() => setSelectedCollectionCardId(null)}
       />
     </section>
@@ -2200,10 +2241,15 @@ function PriceView({
   onAuthRequired: () => void;
 }) {
   const { data: prices } = trpc.catalog.prices.useQuery();
+  const { data: collection, isLoading: collectionLoading } = trpc.collection.list.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
   const { data: priceStatus } = trpc.catalog.priceStatus.useQuery();
+  const utils = trpc.useUtils();
 
   const refresh = trpc.catalog.refreshPrices.useMutation({
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
+      await utils.catalog.prices.invalidate();
       toast.success(
         `Imported ${result.cardmarket.updated} Cardmarket + ${result.cardtrader.updated} CardTrader EUR prices.`,
       );
@@ -2231,6 +2277,10 @@ function PriceView({
   const lookup = new Map<number, PriceRow[]>();
 
   for (const price of prices ?? []) {
+    if (price.marketCents <= 0) {
+      continue;
+    }
+
     const existing = lookup.get(price.cardId) ?? [];
 
     existing.push({
@@ -2244,6 +2294,16 @@ function PriceView({
 
     lookup.set(price.cardId, existing);
   }
+
+  const cardsById = new Map(cards.map((card) => [card.id, card] as const));
+  const trackedCards = isAuthenticated
+    ? (collection ?? [])
+      .filter((item) => item.quantity > 0)
+      .flatMap((item) => {
+        const card = cardsById.get(item.cardId);
+        return card ? [{ card, quantity: item.quantity }] : [];
+      })
+    : cards.slice(0, 10).map((card) => ({ card, quantity: 0 }));
 
   return (
     <section className="content-section">
@@ -2307,7 +2367,14 @@ function PriceView({
       </div>
 
       <div className="price-table">
-        {cards.slice(0, 10).map((card) => {
+        {isAuthenticated && collectionLoading ? (
+          <div className="activity-empty">Loading your collection prices…</div>
+        ) : isAuthenticated && trackedCards.length === 0 ? (
+          <div className="activity-empty">
+            <b>No cards in your collection yet</b>
+            <span>Add cards to your collection to track their prices here.</span>
+          </div>
+        ) : trackedCards.map(({ card, quantity }) => {
           const cardPrices = lookup.get(card.id) ?? [];
 
           const rows: PriceRow[] = cardPrices.length
@@ -2315,11 +2382,11 @@ function PriceView({
             : [
               {
                 cardId: card.id,
-                source: "Catalog snapshot",
+                source: card.marketCents > 0 ? "Catalog reference" : "No price data",
                 currency: "EUR",
                 marketCents: card.marketCents,
-                lowCents: Math.max(1, card.marketCents - 30),
-                highCents: card.marketCents + 60,
+                lowCents: card.marketCents,
+                highCents: card.marketCents,
               },
             ];
 
@@ -2339,16 +2406,23 @@ function PriceView({
 
                 <span>
                   <b>{card.name}</b>
-                  <small>{card.subtitle ?? card.kind}</small>
+                  <small>
+                    {card.subtitle ?? card.kind}
+                    {isAuthenticated ? ` · Owned ×${quantity}` : ""}
+                  </small>
                 </span>
               </div>
 
               <span>{price.source}</span>
 
-              <strong>{money(price.marketCents)}</strong>
+              <strong>
+                {price.marketCents > 0 ? money(price.marketCents) : "Unavailable"}
+              </strong>
 
               <span className="price-range">
-                {money(price.lowCents)} — {money(price.highCents)}
+                {price.marketCents > 0
+                  ? `${money(price.lowCents)} — ${money(price.highCents)}`
+                  : "—"}
               </span>
             </div>
           ));
@@ -2573,9 +2647,10 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
   const [name, setName] = useState("Untitled Deck");
   const [deckEdition, setDeckEdition] = useState<"retail" | "beta">("retail");
   const [cardPool, setCardPool] = useState<"all" | "owned">("all");
-  const { data: collection } = trpc.collection.list.useQuery(undefined, {
+  const collectionQuery = trpc.collection.list.useQuery(undefined, {
     enabled: isAuthenticated,
   });
+  const collection = collectionQuery.data;
   const [savedDeckId, setSavedDeckId] = useState<number>();
   const [shareExpiry, setShareExpiry] = useState("");
   const [shareToken, setShareToken] = useState<string>();
@@ -2598,6 +2673,7 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
   const revokeShare = trpc.decks.revokeShare.useMutation({ onSuccess: () => { setShareToken(undefined); toast.success("Public access revoked."); }, onError: (error) => toast.error(error.message) });
   const [strategyGoals, setStrategyGoals] = useState<StrategyGoal[]>(["aggro", "control", "midrange"]);
   const [weights, setWeights] = useState({ speed: 50, control: 50, budget: 50 });
+  const [advisorProvider, setAdvisorProvider] = useState<"ollama" | "lmstudio" | "omniroute">("omniroute");
   const advisor = trpc.advisor.recommendMany.useMutation({ onSuccess: (result) => { setAdvisorResults(result); toast.success(`AI found ${result.length} legal strategy options from your collection.`); }, onError: (error) => toast.error(error.message) });
   const [advisorResults, setAdvisorResults] = useState<NonNullable<ReturnType<typeof trpc.advisor.recommendMany.useMutation>["data"]>>([]);
   const ownedCardIds = new Set(
@@ -2605,10 +2681,15 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
       .filter((item) => item.quantity > 0)
       .map((item) => item.cardId),
   );
+  const ownedCards = cards.filter((card) => ownedCardIds.has(card.id));
+  const alternateEdition = deckEdition === "retail" ? "beta" : "retail";
+  const alternateEditionCount = ownedCards.filter(
+    (card) => (card.edition ?? "retail") === alternateEdition,
+  ).length;
 
   const poolCards =
     cardPool === "owned"
-      ? cards.filter((card) => ownedCardIds.has(card.id))
+      ? ownedCards
       : cards;
   const editionCards = poolCards.filter(
     (card) => (card.edition ?? "retail") === deckEdition,
@@ -2879,6 +2960,55 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   <small>Cards in your collection</small>
                 </button>
               </div>
+              {cardPool === "owned" && collectionQuery.isLoading && (
+                <div className="empty-state">
+                  <RefreshCw className="spin" size={18} />
+                  <span>Loading your owned cards…</span>
+                </div>
+              )}
+              {cardPool === "owned" && collectionQuery.error && (
+                <div className="empty-state">
+                  <strong>Couldn’t load your collection.</strong>
+                  <span>{collectionQuery.error.message}</span>
+                </div>
+              )}
+              {cardPool === "owned" &&
+                isAuthenticated &&
+                !collectionQuery.isLoading &&
+                !collectionQuery.error &&
+                legendCards.length === 0 && (
+                  <div className="empty-state">
+                    <strong>
+                      {ownedCards.length === 0
+                        ? collection?.length
+                          ? "Saved collection cards don’t match the current catalog."
+                          : "No owned cards found in your collection."
+                        : mainCards.length > 0
+                          ? `You own ${mainCards.length} ${deckEdition} main-deck cards, but no Legends.`
+                          : `No owned ${deckEdition} cards found.`}
+                    </strong>
+                    <span>
+                      {alternateEditionCount > 0
+                        ? `${alternateEditionCount} owned ${alternateEdition} cards are available instead.`
+                        : mainCards.length > 0
+                          ? "This step only lists Legends. Choose Legends from All, then set the main-deck pool to Owned in the next step."
+                          : "Try the All card pool or add cards from the Collection page."}
+                    </span>
+                    {alternateEditionCount > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setDeckEdition(alternateEdition);
+                          setLegends([]);
+                          setMain({});
+                        }}
+                      >
+                        Switch to {alternateEdition}
+                      </Button>
+                    )}
+                  </div>
+                )}
             </div>
           </div>
           <div className="deck-step-actions">
@@ -3145,6 +3275,37 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
             ))}
           </div>
 
+          <div className="advisor-provider-picker">
+            <div className="advisor-provider-label">
+              <b>AI provider</b>
+              <small>
+                {advisorProvider === "omniroute"
+                  ? "OmniRoute / OpenRouter"
+                  : advisorProvider === "ollama"
+                    ? "Local Ollama"
+                    : "Local LM Studio"}
+              </small>
+            </div>
+
+            <div className="strategy-picker advisor-provider-options">
+              {([
+                ["omniroute", "OmniRoute", "OpenRouter models"],
+                ["ollama", "Ollama", "Local model"],
+                ["lmstudio", "LM Studio", "Local model"],
+              ] as const).map(([provider, label, detail]) => (
+                <button
+                  key={provider}
+                  type="button"
+                  className={`strategy-chip ${advisorProvider === provider ? "selected" : ""}`}
+                  onClick={() => setAdvisorProvider(provider)}
+                >
+                  <b>{label}</b>
+                  <small>{detail}</small>
+                </button>
+              ))}
+            </div>
+          </div>
+
           <div className="strategy-picker">
             {STRATEGY_GOALS.map((goal) => (
               <button
@@ -3181,7 +3342,12 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                   return;
                 }
 
-                advisor.mutate({ goals: strategyGoals, weights, edition: deckEdition })
+                advisor.mutate({
+                  goals: strategyGoals,
+                  weights,
+                  edition: deckEdition,
+                  provider: advisorProvider,
+                })
               }}
               disabled={advisor.isPending}
             >
@@ -3352,10 +3518,10 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
 
                               <div
                                 className={`advisor-matchup-result ${overall.wins > overall.losses
-                                    ? "advisor-matchup-result-win"
-                                    : overall.wins < overall.losses
-                                      ? "advisor-matchup-result-loss"
-                                      : ""
+                                  ? "advisor-matchup-result-win"
+                                  : overall.wins < overall.losses
+                                    ? "advisor-matchup-result-loss"
+                                    : ""
                                   }`}
                               >
                                 <strong>
@@ -3434,10 +3600,10 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
                     {row.quantities.map((quantity, index) => (
                       <span
                         className={`diff-cell ${quantity === 0
-                            ? "empty"
-                            : index === 0 || quantity === row.quantities[0]
-                              ? "same"
-                              : "changed"
+                          ? "empty"
+                          : index === 0 || quantity === row.quantities[0]
+                            ? "same"
+                            : "changed"
                           }`}
                         key={`${row.card.id}-${index}`}
                       >
@@ -3482,6 +3648,59 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
               </div>
               <span className={`count-pill ${validation.totalMain >= 40 && validation.totalMain <= 50 ? "good" : "warn"}`}>{validation.totalMain} / 50</span>
             </div>
+            <div className="deck-pool-picker">
+              <span className="eyebrow">Main-deck card pool</span>
+              <div className="deck-edition-options">
+                <button
+                  type="button"
+                  className={cardPool === "all" ? "active" : ""}
+                  onClick={() => setCardPool("all")}
+                >
+                  <b>All</b>
+                  <small>All cards in this edition</small>
+                </button>
+                <button
+                  type="button"
+                  className={cardPool === "owned" ? "active" : ""}
+                  onClick={() => setCardPool("owned")}
+                >
+                  <b>Owned</b>
+                  <small>Cards in your collection</small>
+                </button>
+              </div>
+            </div>
+            {cardPool === "owned" && collectionQuery.isLoading && (
+              <div className="empty-state">
+                <RefreshCw className="spin" size={18} />
+                <span>Loading your owned cards…</span>
+              </div>
+            )}
+            {cardPool === "owned" && collectionQuery.error && (
+              <div className="empty-state">
+                <strong>Couldn’t load your collection.</strong>
+                <span>{collectionQuery.error.message}</span>
+              </div>
+            )}
+            {cardPool === "owned" &&
+              isAuthenticated &&
+              !collectionQuery.isLoading &&
+              !collectionQuery.error &&
+              mainCards.length === 0 && (
+                <div className="empty-state">
+                  <strong>
+                    {ownedCards.length === 0
+                      ? "No owned cards found in your collection."
+                      : `No owned ${deckEdition} main-deck cards found.`}
+                  </strong>
+                  <span>
+                    {ownedCards.some(
+                      (card) => (card.edition ?? "retail") === deckEdition,
+                    )
+                      ? "Your owned cards in this edition are Legends, not main-deck cards."
+                      : "Try the All card pool or check the selected deck edition."}
+                  </span>
+                </div>
+              )}
             <div className="deck-card-list">
               {mainCards.map((card) => (
                 <div
@@ -3583,9 +3802,400 @@ function DeckLab({ cards, isAuthenticated, onAuthRequired }: { cards: CatalogCar
   );
 }
 
-function Overview({ cards, isAuthenticated, setView, onAuthRequired }: { cards: CatalogCard[]; isAuthenticated: boolean; setView: (view: View) => void; onAuthRequired: () => void }) {
+function Overview({
+  cards,
+  isAuthenticated,
+  setView,
+  onAuthRequired,
+}: {
+  cards: CatalogCard[];
+  isAuthenticated: boolean;
+  setView: (view: View) => void;
+  onAuthRequired: () => void;
+}) {
   const tracked = isAuthenticated ? "Syncing" : "Demo mode";
-  return <section className="content-section overview"><div className="hero-copy"><div><span className="eyebrow lime">NIGHT CITY / COLLECTION OS</span><h1>Turn your binder<br /><em>into a deck.</em></h1><p>Scan both sides. Keep every hit on the server. Build within RAM before you sit down at the table.</p><div className="hero-actions"><Button onClick={() => setView("scanner")}><ScanLine size={17} />Scan a card</Button><Button variant="outline" onClick={() => setView("decks")}><Zap size={17} />Open deck lab</Button>{!isAuthenticated && <Button variant="outline" onClick={() => onAuthRequired()}><LogIn size={17} />Sign in to save your binder</Button>}</div></div><div className="hero-orbit"><div className="orbit-ring ring-one" /><div className="orbit-ring ring-two" /><div className="orbit-card"><span>RAM</span><strong>02</strong><small>GREEN</small></div><div className="orbit-tag tag-one">EDGE LOCK</div><div className="orbit-tag tag-two">SYNCED</div></div></div><div className="stats-grid"><StatCard label="Cards tracked" value={String(cards.length)} detail="official catalog ready" accent="#b9f36b" /><StatCard label="Collection value" value="€33.30" detail="EUR snapshot estimate" accent="#72d4ff" /><StatCard label="Decks in lab" value="02" detail="one needs RAM review" accent="#ff6b7f" /><StatCard label="Sync status" value={tracked} detail={isAuthenticated ? "server connected" : "sign in to persist"} accent="#c39bff" /></div><div className="overview-grid"><div className="panel-card feature-card"><div className="panel-heading"><div><span className="eyebrow">Fast lane</span><h2>Scan → match → store</h2></div><span className="step-index">01—03</span></div><div className="flow-steps"><FlowStep number="01" icon={<Camera size={18} />} title="Capture both sides" detail="Assisted crop keeps the card frame clean." /><FlowStep number="02" icon={<Crosshair size={18} />} title="Confirm recognition" detail="Search the official catalog if needed." /><FlowStep number="03" icon={<Database size={18} />} title="Persist the hit" detail="Images and quantity stay attached to your account." /></div><Button variant="outline" className="full-button" onClick={() => setView("scanner")}>Start a capture <ChevronRight size={15} /></Button></div><div className="panel-card pulse-card"><div className="panel-heading"><div><span className="eyebrow">Rule pulse</span><h2>Deck legality at a glance</h2></div><ShieldCheck size={19} className="lime-icon" /></div><div className="rule-pulse"><div><strong>3</strong><span>unique Legends</span></div><div><strong>40–50</strong><span>main cards</span></div><div><strong>≤ 3</strong><span>copies per card</span></div></div><p>RAM is color-specific: your Legends define the ceiling for every card you add.</p><Button variant="outline" className="full-button" onClick={() => setView("decks")}>Check a deck <ChevronRight size={15} /></Button></div></div><div className="recent-row"><div><span className="eyebrow">Catalog signal</span><h2>Cards ready to explore</h2></div><div className="recent-cards">{cards.slice(0, 4).map((card) => <MiniCard key={card.id} card={card} />)}</div></div></section>;
+  const { data: collection, isLoading: collectionLoading } = trpc.collection.list.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const pricesByCardId = new Map(cards.map((card) => [card.id, card.marketCents] as const));
+  const collectionValueCents = (collection ?? []).reduce(
+    (total, item) => total + (pricesByCardId.get(item.cardId) ?? 0) * item.quantity,
+    0,
+  );
+
+  return (
+    <section className="content-section overview">
+      <div className="hero-copy">
+        <div>
+          <span className="eyebrow lime">NIGHT CITY / COLLECTION OS</span>
+          <h1>
+            Turn your binder
+            <br />
+            <em>into a deck.</em>
+          </h1>
+          <p>
+            Scan both sides. Keep every hit on the server. Build within RAM
+            before you sit down at the table.
+          </p>
+          <div className="hero-actions">
+            <Button onClick={() => setView("scanner")}>
+              <ScanLine size={17} />
+              Scan a card
+            </Button>
+            <Button variant="outline" onClick={() => setView("decks")}>
+              <Zap size={17} />
+              Open deck lab
+            </Button>
+            {!isAuthenticated && (
+              <Button variant="outline" onClick={() => onAuthRequired()}>
+                <LogIn size={17} />
+                Sign in to save your binder
+              </Button>
+            )}
+          </div>
+        </div>
+        <div className="hero-orbit">
+          <div className="orbit-ring ring-one" />
+          <div className="orbit-ring ring-two" />
+          <div className="orbit-card">
+            <span>RAM</span>
+            <strong>02</strong>
+            <small>GREEN</small>
+          </div>
+          <div className="orbit-tag tag-one">EDGE LOCK</div>
+          <div className="orbit-tag tag-two">SYNCED</div>
+        </div>
+      </div>
+      <div className="stats-grid">
+        <StatCard
+          label="Cards tracked"
+          value={String(cards.length)}
+          detail="official catalog ready"
+          accent="#b9f36b"
+        />
+        <StatCard
+          label="Collection value"
+          value={collectionLoading ? "…" : money(collectionValueCents)}
+          detail={isAuthenticated ? "Owned cards · EUR market value" : "Sign in to value your collection"}
+          accent="#72d4ff"
+        />
+        <StatCard
+          label="Decks in lab"
+          value="02"
+          detail="one needs RAM review"
+          accent="#ff6b7f"
+        />
+        <StatCard
+          label="Sync status"
+          value={tracked}
+          detail={isAuthenticated ? "server connected" : "sign in to persist"}
+          accent="#c39bff"
+        />
+      </div>
+      <div className="overview-grid">
+        <div className="panel-card feature-card">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">Fast lane</span>
+              <h2>Scan → match → store</h2>
+            </div>
+            <span className="step-index">01—03</span>
+          </div>
+          <div className="flow-steps">
+            <FlowStep
+              number="01"
+              icon={<Camera size={18} />}
+              title="Capture both sides"
+              detail="Assisted crop keeps the card frame clean."
+            />
+            <FlowStep
+              number="02"
+              icon={<Crosshair size={18} />}
+              title="Confirm recognition"
+              detail="Search the official catalog if needed."
+            />
+            <FlowStep
+              number="03"
+              icon={<Database size={18} />}
+              title="Persist the hit"
+              detail="Images and quantity stay attached to your account."
+            />
+          </div>
+          <Button
+            variant="outline"
+            className="full-button"
+            onClick={() => setView("scanner")}
+          >
+            Start a capture <ChevronRight size={15} />
+          </Button>
+        </div>
+        <div className="panel-card pulse-card">
+          <div className="panel-heading">
+            <div>
+              <span className="eyebrow">Rule pulse</span>
+              <h2>Deck legality at a glance</h2>
+            </div>
+            <ShieldCheck size={19} className="lime-icon" />
+          </div>
+          <div className="rule-pulse">
+            <div>
+              <strong>3</strong>
+              <span>unique Legends</span>
+            </div>
+            <div>
+              <strong>40–50</strong>
+              <span>main cards</span>
+            </div>
+            <div>
+              <strong>≤ 3</strong>
+              <span>copies per card</span>
+            </div>
+          </div>
+          <p>
+            RAM is color-specific: your Legends define the ceiling for every
+            card you add.
+          </p>
+          <Button
+            variant="outline"
+            className="full-button"
+            onClick={() => setView("decks")}
+          >
+            Check a deck <ChevronRight size={15} />
+          </Button>
+        </div>
+      </div>
+      <div className="recent-row">
+        <div>
+          <span className="eyebrow">Catalog signal</span>
+          <h2>Cards ready to explore</h2>
+        </div>
+        <div className="recent-cards">
+          {cards.slice(0, 4).map(card => (
+            <MiniCard key={card.id} card={card} />
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+
+function RulesJudgeView({
+  isAuthenticated,
+  onAuthRequired,
+}: {
+  isAuthenticated: boolean;
+  onAuthRequired: () => void;
+}) {
+  const [question, setQuestion] = useState("");
+  const [provider, setProvider] = useState<"omniroute" | "ollama" | "lmstudio">("omniroute");
+
+  const judge = trpc.rulesJudge.ask.useMutation({
+    onError: (error) => toast.error(error.message),
+  });
+
+  function submitQuestion(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+
+    if (!isAuthenticated) {
+      onAuthRequired();
+      return;
+    }
+
+    const trimmed = question.trim();
+    if (!trimmed || judge.isPending) return;
+
+    judge.mutate({ question: trimmed, provider });
+  }
+
+  const result = judge.data;
+  const sourceLabels: Record<string, string> = {
+    comprehensive: "Comprehensive rules",
+    tournament: "Tournament rules",
+    faq: "Official FAQ",
+    card: "Local card text",
+  };
+
+  return (
+    <section className="content-section rules-judge">
+      <div className="page-intro">
+        <div>
+          <span className="eyebrow lime">RULES JUDGE / EVIDENCE-BASED</span>
+          <h1>Settle the ruling.</h1>
+          <p>
+            Ask about a card interaction or game situation. The Judge retrieves
+            relevant rules and card text, then gives an AI-assisted interpretation
+            with source references.
+          </p>
+        </div>
+        <div className="intro-stat">
+          <span>REFERENCE SET</span>
+          <strong>RULES + FAQ</strong>
+          <small>Sources are linked below each answer</small>
+        </div>
+      </div>
+
+      {!isAuthenticated && (
+        <div className="auth-banner">
+          <ShieldCheck size={19} />
+          <div>
+            <b>Sign in to ask the Rules Judge</b>
+            <span>Your question will be sent to the configured AI provider after sign-in.</span>
+          </div>
+          <Button size="sm" onClick={onAuthRequired}>
+            <LogIn size={14} />
+            Sign in
+          </Button>
+        </div>
+      )}
+
+      <div className="rules-judge-layout">
+        <section className="panel-card rules-judge-panel">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">01 / YOUR SITUATION</span>
+              <h2>Ask a rules question</h2>
+            </div>
+            <span className="count-pill">MAX 1,200 CHARS</span>
+          </div>
+
+          <form className="rules-judge-form" onSubmit={submitQuestion}>
+            <label className="rules-judge-label" htmlFor="rules-judge-question">
+              Describe the interaction
+            </label>
+            <textarea
+              id="rules-judge-question"
+              className="rules-judge-question"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value.slice(0, 1200))}
+              maxLength={1200}
+              rows={6}
+              placeholder="Example: If a card moves a unit to another location, does that trigger an ability that checks when it enters that location?"
+              aria-describedby="rules-judge-hint"
+            />
+            <div className="rules-judge-input-meta">
+              <span id="rules-judge-hint">
+                Include the card name, timing, and what happened before the question.
+              </span>
+              <span>{question.length}/1200</span>
+            </div>
+
+            <label className="rules-judge-label" htmlFor="rules-judge-provider">
+              AI provider
+            </label>
+            <select
+              id="rules-judge-provider"
+              className="rules-judge-provider"
+              value={provider}
+              onChange={(event) => setProvider(event.target.value as typeof provider)}
+            >
+              <option value="omniroute">OmniRoute — configured endpoint</option>
+              <option value="ollama">Ollama — local model</option>
+              <option value="lmstudio">LM Studio — local model</option>
+            </select>
+
+            <Button
+              type="submit"
+              className="rules-judge-submit"
+              disabled={!question.trim() || judge.isPending}
+            >
+              {judge.isPending
+                ? <Loader2 size={15} className="spin" />
+                : <BookOpen size={15} />}
+              {judge.isPending ? "Checking the evidence…" : "Ask Rules Judge"}
+            </Button>
+            <p className="rules-judge-footnote">
+              Answers are AI interpretations, not official rulings. Check the linked
+              source text when a tournament decision depends on the answer.
+            </p>
+          </form>
+        </section>
+
+        <section className="panel-card rules-judge-panel rules-judge-result-panel">
+          <div className="section-head">
+            <div>
+              <span className="eyebrow">02 / RULING REPORT</span>
+              <h2>Answer and evidence</h2>
+            </div>
+            {result && (
+              <span className={`rules-judge-status ${result.evidenceFound ? "has-evidence" : "no-evidence"}`}>
+                {result.evidenceFound ? "EVIDENCE FOUND" : "NO MATCH"}
+              </span>
+            )}
+          </div>
+
+          {judge.isPending ? (
+            <div className="rules-judge-empty">
+              <Loader2 size={22} className="spin" />
+              <b>Reviewing the available sources</b>
+              <span>Retrieving relevant rules, FAQ entries, and card text before generating an answer.</span>
+            </div>
+          ) : judge.isError ? (
+            <div className="rules-judge-notice">
+              <b>The ruling could not be completed.</b>
+              <span>{judge.error.message}</span>
+              <Button variant="outline" size="sm" onClick={() => judge.reset()}>
+                Dismiss error
+              </Button>
+            </div>
+          ) : result ? (
+            <>
+              <div className="rules-judge-answer">
+                <div className="rules-judge-answer-heading">
+                  <Sparkles size={15} />
+                  <span>{result.evidenceFound ? "AI-assisted interpretation" : "Evidence check"}</span>
+                </div>
+                <div className="rules-judge-answer-text">{result.answer}</div>
+              </div>
+
+              {result.sources.length > 0 ? (
+                <div className="rules-judge-sources">
+                  <div className="rules-judge-sources-heading">
+                    <b>Retrieved sources</b>
+                    <span>{result.sources.length} references</span>
+                  </div>
+                  <div className="rules-judge-source-list">
+                    {result.sources.map((source) => (
+                      <a
+                        className="rules-judge-source"
+                        href={source.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        key={`${source.id}-${source.url}-${source.title}`}
+                      >
+                        <span className="rules-judge-source-id">{source.id}</span>
+                        <span className="rules-judge-source-content">
+                          <b>{source.title}</b>
+                          <small>{sourceLabels[source.type] ?? source.type}</small>
+                          <span>{source.excerpt}</span>
+                        </span>
+                        <ExternalLink size={14} className="rules-judge-source-link-icon" />
+                      </a>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <div className="rules-judge-notice">
+                  No sufficiently relevant source was retrieved. Try including an exact
+                  card name or a more specific description of the interaction.
+                </div>
+              )}
+            </>
+          ) : (
+            <div className="rules-judge-empty">
+              <BookOpen size={24} />
+              <b>Waiting for your question</b>
+              <span>
+                Your answer and its supporting references will appear here.
+                If the evidence cannot resolve the situation, the Judge should say so
+                rather than invent a ruling.
+              </span>
+            </div>
+          )}
+        </section>
+      </div>
+    </section>
+  );
 }
 
 function FlowStep({ number, icon, title, detail }: { number: string; icon: React.ReactNode; title: string; detail: string }) { return <div className="flow-step"><span className="flow-number">{number}</span><span className="flow-icon">{icon}</span><div><b>{title}</b><small>{detail}</small></div></div>; }
@@ -3600,10 +4210,23 @@ export default function Home() {
 
   const [view, setView] = useState<View>("overview");
   const { data: catalog } = trpc.catalog.list.useQuery();
-  const cards = (catalog?.length ? catalog : CATALOG_CARDS) as CatalogCard[];
+  const { data: prices } = trpc.catalog.prices.useQuery();
+  const catalogCards = (catalog?.length ? catalog : CATALOG_CARDS) as CatalogCard[];
+  const latestPrices = new Map<number, number>();
+
+  for (const price of prices ?? []) {
+    if (price.marketCents > 0 && !latestPrices.has(price.cardId)) {
+      latestPrices.set(price.cardId, price.marketCents);
+    }
+  }
+
+  const cards = catalogCards.map((card) => ({
+    ...card,
+    marketCents: latestPrices.get(card.id) ?? card.marketCents,
+  }));
   return (
     <>
-      <div className="app-shell"><aside className="side-rail"><div className="brand-mark"><div className="brand-glyph">N</div><div><b>NIGHT CITY</b><span>DECKLAB</span></div></div><div className="rail-label">WORKSPACE</div><nav>{nav.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><item.icon size={17} /><span>{item.label}</span>{item.id === "scanner" && <i />}</button>)}</nav><div className="rail-bottom"><div className="sync-card"><span className="sync-orb"><span /></span><div><b>{isAuthenticated ? user?.name ?? "Operator" : "Guest operator"}</b><small>{isAuthenticated ? "server sync active" : "demo data only"}</small></div></div>{isAuthenticated ? <button className="logout-link" onClick={() => logout()}>Sign out <ExternalLink size={13} /></button> : <Button variant="outline" className="rail-login" onClick={() => openAuth()}><LogIn size={14} />Sign in to sync</Button>}</div></aside><main className="main-canvas"><header className="topbar"><div><span className="topbar-kicker">WELCOME TO NIGHT CITY</span><span className="topbar-divider">/</span><span className="topbar-current">{nav.find((item) => item.id === view)?.label}</span></div><div className="topbar-right"><span className="status-chip"><span />API layer ready</span>{isAuthenticated ? <span className="account-chip">{user?.name ?? "Signed in"}</span> : <Button variant="outline" size="sm" className="topbar-login" onClick={() => openAuth()}><LogIn size={13} />Sign in to sync</Button>}<span className="version-chip">v0.1 / private beta</span></div></header><div className="page-content">{view === "overview" && <Overview cards={cards} isAuthenticated={isAuthenticated} setView={setView} onAuthRequired={openAuth} />}{view === "scanner" && <><div className="page-intro"><div><span className="eyebrow lime">CARD SCANNER / FRONT + BACK</span><h1>Capture a clean hit.</h1><p>Use your phone camera or webcam. We keep both sides together, then add the match to your server-side binder.</p></div><div className="intro-stat"><span>SUPPORTED</span><strong>WEB + MOBILE</strong><small>camera permissions stay in your browser</small></div></div><CameraPanel cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "collection" && <><div className="page-intro"><div><span className="eyebrow lime">MY COLLECTION / SERVER-SYNCED</span><h1>Your binder, indexed.</h1><p>Every scan becomes a useful inventory line with quantity, condition, image pair, and market context.</p></div><div className="intro-stat"><span>EST. VALUE</span><strong>€0.00</strong><small>based on latest EUR snapshot</small></div></div><CollectionView cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "decks" && <><div className="page-intro"><div><span className="eyebrow lime">DECK LAB / RAM VALIDATOR</span><h1>Build legal. Play louder.</h1><p>Choose Legends first. The RAM rail will tell you exactly why a card fits—or why it does not.</p></div><div className="intro-stat"><span>RULE SOURCE</span><strong>OFFICIAL</strong><small>Cyberpunk TCG gameplay guide</small></div></div><DeckLab cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "prices" && <><div className="page-intro"><div><span className="eyebrow lime">PRICE WATCH / MARKET DATA</span><h1>Know what is in the stack.</h1><p>See market snapshots beside the cards you own, with Cardmarket daily EUR data when configured.</p></div><div className="intro-stat"><span>REFRESH</span><strong>DAILY EUR</strong><small>Cardmarket price guide</small></div></div><PriceView cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "activity" && <><div className="page-intro"><div><span className="eyebrow lime">ACTIVITY / OPERATOR LOG</span><h1>See what changed.</h1><p>Track the latest scans, collection imports, deck saves, and AI recommendations tied to your account.</p></div><div className="intro-stat"><span>RETENTION</span><strong>30 EVENTS</strong><small>latest server activity</small></div></div><ActivityView isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}</div></main></div>
+      <div className="app-shell"><aside className="side-rail"><div className="brand-mark"><div className="brand-glyph">N</div><div><b>NIGHT CITY</b><span>DECKLAB</span></div></div><div className="rail-label">WORKSPACE</div><nav>{nav.map((item) => <button key={item.id} className={view === item.id ? "active" : ""} onClick={() => setView(item.id)}><item.icon size={17} /><span>{item.label}</span>{item.id === "scanner" && <i />}</button>)}</nav><div className="rail-bottom"><div className="sync-card"><span className="sync-orb"><span /></span><div><b>{isAuthenticated ? user?.name ?? "Operator" : "Guest operator"}</b><small>{isAuthenticated ? "server sync active" : "demo data only"}</small></div></div>{isAuthenticated ? <button className="logout-link" onClick={() => logout()}>Sign out <ExternalLink size={13} /></button> : <Button variant="outline" className="rail-login" onClick={() => openAuth()}><LogIn size={14} />Sign in to sync</Button>}</div></aside><main className="main-canvas"><header className="topbar"><div><span className="topbar-kicker">WELCOME TO NIGHT CITY</span><span className="topbar-divider">/</span><span className="topbar-current">{nav.find((item) => item.id === view)?.label}</span></div><div className="topbar-right"><span className="status-chip"><span />API layer ready</span>{isAuthenticated ? <span className="account-chip">{user?.name ?? "Signed in"}</span> : <Button variant="outline" size="sm" className="topbar-login" onClick={() => openAuth()}><LogIn size={13} />Sign in to sync</Button>}<span className="version-chip">v0.1 / private beta</span></div></header><div className="page-content">{view === "overview" && <Overview cards={cards} isAuthenticated={isAuthenticated} setView={setView} onAuthRequired={openAuth} />}{view === "scanner" && <><div className="page-intro"><div><span className="eyebrow lime">CARD SCANNER / FRONT + BACK</span><h1>Capture a clean hit.</h1><p>Use your phone camera or webcam. We keep both sides together, then add the match to your server-side binder.</p></div><div className="intro-stat"><span>SUPPORTED</span><strong>WEB + MOBILE</strong><small>camera permissions stay in your browser</small></div></div><CameraPanel cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "collection" && <><div className="page-intro"><div><span className="eyebrow lime">MY COLLECTION / SERVER-SYNCED</span><h1>Your binder, indexed.</h1><p>Every scan becomes a useful inventory line with quantity, condition, image pair, and market context.</p></div><div className="intro-stat"><span>EST. VALUE</span><strong>€0.00</strong><small>based on latest EUR snapshot</small></div></div><CollectionView cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "decks" && <><div className="page-intro"><div><span className="eyebrow lime">DECK LAB / RAM VALIDATOR</span><h1>Build legal. Play louder.</h1><p>Choose Legends first. The RAM rail will tell you exactly why a card fits—or why it does not.</p></div><div className="intro-stat"><span>RULE SOURCE</span><strong>OFFICIAL</strong><small>Cyberpunk TCG gameplay guide</small></div></div><DeckLab cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "prices" && <><div className="page-intro"><div><span className="eyebrow lime">PRICE WATCH / MARKET DATA</span><h1>Know what is in the stack.</h1><p>See market snapshots beside the cards you own, with Cardmarket daily EUR data when configured.</p></div><div className="intro-stat"><span>REFRESH</span><strong>DAILY EUR</strong><small>Cardmarket price guide</small></div></div><PriceView cards={cards} isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "activity" && <><div className="page-intro"><div><span className="eyebrow lime">ACTIVITY / OPERATOR LOG</span><h1>See what changed.</h1><p>Track the latest scans, collection imports, deck saves, and AI recommendations tied to your account.</p></div><div className="intro-stat"><span>RETENTION</span><strong>30 EVENTS</strong><small>latest server activity</small></div></div><ActivityView isAuthenticated={isAuthenticated} onAuthRequired={openAuth} /></>}{view === "rules" && <RulesJudgeView isAuthenticated={isAuthenticated} onAuthRequired={openAuth} />}</div></main></div>
       <AuthDialog open={authOpen} onOpenChange={setAuthOpen} />
     </>
   );
